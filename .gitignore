@@ -65,16 +65,16 @@ logs/
 uploads/
 static/uploads/
 
-# Store directory (uploaded world files)
-store/*                   # Ignore all files in store directory
-!store/README.md         # But keep the README file
+# Store directory (uploaded world files) - ignore everything except README
+store/*
+!store/README.md
 
-# Unpacked directory (extracted world contents)
-unpacked/*               # Ignore all files in unpacked directory
-!unpacked/README.md      # But keep the README file
+# Unpacked directory (extracted world contents) - ignore everything except README  
+unpacked/*
+!unpacked/README.md
 
-# Metadata files
-metadata.json            # World metadata database
-unpacked_metadata.json   # Unpacked world tracking database
-/metadata.json           # Root level metadata files
-/unpacked_metadata.json
+# Metadata files (anywhere in the project)
+metadata.json
+unpacked_metadata.json
+*/metadata.json
+*/unpacked_metadata.json

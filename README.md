@@ -169,6 +169,27 @@ The language analysis provides multiple readability metrics:
 - File size limits (500MB max)
 - Input sanitization and validation
 
+## 📁 Data Privacy & Git
+
+The application stores user data in specific directories that are **automatically excluded from Git**:
+
+- `store/` - Uploaded world files (.mcworld, .mctemplate)
+- `unpacked/` - Extracted world contents  
+- `metadata.json` - World metadata database
+- `unpacked_metadata.json` - Unpacked world tracking
+
+These directories contain user-uploaded content and should never be committed to version control. The `.gitignore` file is configured to prevent accidental commits of sensitive data.
+
+### Repository Structure
+```
+mcedu__toolkit/
+├── store/README.md           # Documentation only (files ignored)
+├── unpacked/README.md        # Documentation only (files ignored)
+├── templates/                # HTML templates (tracked)
+├── app.py                    # Main application (tracked)
+└── requirements.txt          # Dependencies (tracked)
+```
+
 ## 🛠️ Configuration
 
 ### Environment Variables
