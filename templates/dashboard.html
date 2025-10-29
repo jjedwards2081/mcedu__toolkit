@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Minecraft Education Toolkit{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="content-area">
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="card card-minecraft mb-4">
+                        <div class="card-body p-4 text-center">
+                            <i class="fas fa-cube fa-3x text-success mb-3"></i>
+                            <h1 class="mb-3">Welcome to MCEdu Toolkit</h1>
+                            <h4 class="text-muted mb-3">Hello, {{ user.username }}!</h4>
+                            <p class="lead mb-4">
+                                Manage your Minecraft Education worlds and templates with ease.
+                            </p>
+                            <a href="{{ url_for('add_world') }}" class="btn btn-success btn-lg me-3">
+                                <i class="fas fa-plus-circle"></i> Add New World
+                            </a>
+                            {% if unpacked_worlds %}
+                            <a href="{{ url_for('language_tools') }}" class="btn btn-info btn-lg">
+                                <i class="fas fa-language"></i> Language Tools
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Worlds List -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-archive"></i> Your Worlds ({{ worlds|length }})</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if worlds %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>File Name</th>
+                                                <th>Type</th>
+                                                <th>Uploaded By</th>
+                                                <th>Upload Date</th>
+                                                <th>File Size</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for world in worlds %}
+                                            <tr>
+                                                <td>
+                                                    <i class="fas fa-{{ 'cube' if world.file_type == 'mcworld' else 'file-alt' }} text-primary me-2"></i>
+                                                    {{ world.original_filename }}
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'primary' if world.file_type == 'mcworld' else 'info' }}">
+                                                        {{ world.file_type.upper() }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ world.uploaded_by }}</td>
+                                                <td>{{ world.upload_date.split('T')[0] }}</td>
+                                                <td>{{ world.file_size_mb }} MB</td>
+                                                <td>
+                                                    {% if world.get('unpacked', False) %}
+                                                        <span class="badge bg-success">
+                                                            <i class="fas fa-check"></i> Unpacked
+                                                        </span>
+                                                    {% elif world.get('repacked_from') %}
+                                                        <span class="badge bg-info">
+                                                            <i class="fas fa-recycle"></i> Repacked
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="badge bg-secondary">
+                                                            <i class="fas fa-archive"></i> Packed
+                                                        </span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if not world.get('unpacked', False) %}
+                                                        <a href="{{ url_for('unpack_world_route', world_id=world.id) }}" 
+                                                           class="btn btn-sm btn-warning"
+                                                           onclick="return confirm('Are you sure you want to unpack this world?')">
+                                                            <i class="fas fa-expand-arrows-alt"></i> Unpack
+                                                        </a>
+                                                    {% endif %}
+                                                    <a href="{{ url_for('download_world', world_id=world.id) }}" class="btn btn-sm btn-outline-primary ms-1">
+                                                        <i class="fas fa-download"></i> Download
+                                                    </a>
+                                                    <a href="{{ url_for('delete_world', world_id=world.id) }}" 
+                                                       class="btn btn-sm btn-outline-danger ms-1"
+                                                       onclick="return confirm('Are you sure you want to delete this world? This action cannot be undone.')">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-folder-open fa-2x text-muted mb-3"></i>
+                                    <h6 class="text-muted">No worlds uploaded yet</h6>
+                                    <p class="text-muted mb-0">Upload your first world to get started.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Unpacked Worlds List -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-folder-open"></i> Unpacked Worlds ({{ unpacked_worlds|length }})</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if unpacked_worlds %}
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Original File</th>
+                                                <th>Type</th>
+                                                <th>Unpacked By</th>
+                                                <th>Unpacked Date</th>
+                                                <th>Folder Size</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for world in unpacked_worlds %}
+                                            <tr>
+                                                <td>
+                                                    <i class="fas fa-{{ 'cube' if world.file_type == 'mcworld' else 'file-alt' }} text-success me-2"></i>
+                                                    {{ world.original_filename }}
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{{ 'success' if world.file_type == 'mcworld' else 'info' }}">
+                                                        {{ world.file_type.upper() }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ world.unpacked_by }}</td>
+                                                <td>{{ world.unpacked_date.split('T')[0] }}</td>
+                                                <td>{{ world.folder_size_mb }} MB</td>
+                                                <td>
+                                                    <a href="{{ url_for('language_tools_world', unpacked_id=world.id) }}" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-language"></i> Language Tools
+                                                    </a>
+                                                    <a href="{{ url_for('repack_world_route', unpacked_id=world.id) }}" class="btn btn-sm btn-outline-success ms-1" onclick="return confirm('Are you sure you want to repack this world? This will create a new versioned world file in Your Worlds list.')">>
+                                                        <i class="fas fa-archive"></i> Repack
+                                                    </a>
+                                                    <button class="btn btn-sm btn-outline-danger ms-1" disabled>
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% else %}
+                                <div class="text-center py-4">
+                                    <i class="fas fa-folder fa-2x text-muted mb-3"></i>
+                                    <h6 class="text-muted">No unpacked worlds yet</h6>
+                                    <p class="text-muted mb-0">Unpack a world from the list above to see it here.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

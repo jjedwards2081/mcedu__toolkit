@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}Language Tools - Minecraft Education Toolkit{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="content-area">
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="card card-minecraft mb-4">
+                        <div class="card-header minecraft-theme">
+                            <h3><i class="fas fa-language"></i> Language File Tools</h3>
+                            <p class="mb-0">Work with language files from unpacked Minecraft Education worlds</p>
+                        </div>
+                        <div class="card-body">
+                            {% if unpacked_worlds %}
+                                <p class="lead">Select an unpacked world to work with its language files:</p>
+                                
+                                <div class="row">
+                                    {% for world in unpacked_worlds %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h5 class="card-title">
+                                                    <i class="fas fa-{{ 'cube' if world.file_type == 'mcworld' else 'file-alt' }} text-success me-2"></i>
+                                                    {{ world.original_filename }}
+                                                </h5>
+                                                <p class="card-text">
+                                                    <small class="text-muted">
+                                                        <i class="fas fa-user"></i> Unpacked by: {{ world.unpacked_by }}<br>
+                                                        <i class="fas fa-calendar"></i> Date: {{ world.unpacked_date.split('T')[0] }}<br>
+                                                        <i class="fas fa-folder"></i> Size: {{ world.folder_size_mb }} MB
+                                                    </small>
+                                                </p>
+                                                <a href="{{ url_for('language_tools_world', unpacked_id=world.id) }}" 
+                                                   class="btn btn-primary">
+                                                    <i class="fas fa-language"></i> Language Tools
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                                    <h5 class="text-muted">No unpacked worlds available</h5>
+                                    <p class="text-muted">You need to have unpacked worlds to use Language Tools.</p>
+                                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                                    </a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    {% if unpacked_worlds %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-info-circle"></i> About Language Tools</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>What are Language Files?</h6>
+                                    <ul>
+                                        <li>Files with <code>.lang</code> extension</li>
+                                        <li>Contain text translations for different languages</li>
+                                        <li>Define UI text, item names, and descriptions</li>
+                                        <li>Essential for localization and customization</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Available Tools:</h6>
+                                    <ul>
+                                        <li><strong>Find Language Files</strong> - Scan for all .lang files</li>
+                                        <li><strong>View Contents</strong> - Read file contents in browser</li>
+                                        <li><strong>Download Files</strong> - Save files to your computer</li>
+                                        <li><strong>Size Analysis</strong> - See files sorted by size</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

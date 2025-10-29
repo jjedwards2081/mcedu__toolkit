@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Add World - Minecraft Education Toolkit{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="content-area">
+            <div class="row justify-content-center">
+                <div class="col-md-8">
+                    <div class="card card-minecraft">
+                        <div class="card-header minecraft-theme">
+                            <h3><i class="fas fa-plus-circle"></i> Add New World</h3>
+                            <p class="mb-0">Upload a Minecraft Education world or template file</p>
+                        </div>
+                        <div class="card-body">
+                            <form action="{{ url_for('upload_world') }}" method="POST" enctype="multipart/form-data" id="uploadForm">
+                                <div class="mb-4">
+                                    <label for="file" class="form-label">
+                                        <i class="fas fa-file-upload"></i> Select World File
+                                    </label>
+                                    <input type="file" class="form-control" id="file" name="file" 
+                                           accept=".mcworld,.mctemplate" required>
+                                    <div class="form-text">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Supported formats: .mcworld, .mctemplate (Max size: 500MB)
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3" id="fileInfo" style="display: none;">
+                                    <div class="alert alert-info">
+                                        <strong>Selected file:</strong> <span id="fileName"></span><br>
+                                        <strong>Size:</strong> <span id="fileSize"></span>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-md-2">
+                                        <i class="fas fa-arrow-left"></i> Back to Dashboard
+                                    </a>
+                                    <button type="submit" class="btn btn-success" id="uploadBtn">
+                                        <i class="fas fa-upload"></i> Upload World
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-info-circle"></i> Upload Guidelines</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Supported File Types:</h6>
+                                    <ul>
+                                        <li><strong>.mcworld</strong> - Complete Minecraft worlds</li>
+                                        <li><strong>.mctemplate</strong> - World templates</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Requirements:</h6>
+                                    <ul>
+                                        <li>Maximum file size: 500MB</li>
+                                        <li>Files are stored securely in the system</li>
+                                        <li>Upload tracking for accountability</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('file').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    
+    if (file) {
+        fileName.textContent = file.name;
+        
+        // Format file size
+        const size = file.size;
+        let sizeText;
+        if (size < 1024 * 1024) {
+            sizeText = (size / 1024).toFixed(1) + ' KB';
+        } else {
+            sizeText = (size / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+        fileSize.textContent = sizeText;
+        
+        fileInfo.style.display = 'block';
+        
+        // Check file size limit (500MB)
+        if (size > 500 * 1024 * 1024) {
+            fileInfo.className = 'alert alert-danger';
+            fileName.textContent = file.name + ' (File too large!)';
+            document.getElementById('uploadBtn').disabled = true;
+        } else {
+            fileInfo.className = 'alert alert-info';
+            document.getElementById('uploadBtn').disabled = false;
+        }
+    } else {
+        fileInfo.style.display = 'none';
+        document.getElementById('uploadBtn').disabled = false;
+    }
+});
+
+// Show upload progress
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const btn = document.getElementById('uploadBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading...';
+    btn.disabled = true;
+});
+</script>
+{% endblock %}

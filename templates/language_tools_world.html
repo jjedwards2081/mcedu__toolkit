@@ -1,0 +1,527 @@
+{% extends "base.html" %}
+
+{% block title %}Language Tools - {{ world.original_filename }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="content-area">
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="card card-minecraft mb-4">
+                        <div class="card-header minecraft-theme">
+                            <h3><i class="fas fa-language"></i> Language Tools</h3>
+                            <p class="mb-0">Working with: {{ world.original_filename }}</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5>World Information</h5>
+                                    <ul class="list-unstyled">
+                                        <li><strong>Original File:</strong> {{ world.original_filename }}</li>
+                                        <li><strong>Type:</strong> <span class="badge bg-{{ 'success' if world.file_type == 'mcworld' else 'info' }}">{{ world.file_type.upper() }}</span></li>
+                                        <li><strong>Unpacked By:</strong> {{ world.unpacked_by }}</li>
+                                        <li><strong>Unpacked Date:</strong> {{ world.unpacked_date.split('T')[0] }}</li>
+                                        <li><strong>Folder Size:</strong> {{ world.folder_size_mb }} MB</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <a href="{{ url_for('language_tools') }}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left"></i> Back to Language Tools
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Language File Tools -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-tools"></i> Language File Operations</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-search fa-3x text-primary mb-3"></i>
+                                            <h5 class="card-title">Find Language Files</h5>
+                                            <p class="card-text">Scan the unpacked world for all .lang files and list them by size.</p>
+                                            <button class="btn btn-primary" onclick="findLanguageFiles()">
+                                                <i class="fas fa-search"></i> Find Language Files
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+                                            <h5 class="card-title">Language Analysis</h5>
+                                            <p class="card-text">Analyze the largest .lang file for readability, grade level, and complexity metrics.</p>
+                                            <button class="btn btn-success" onclick="analyzeLanguage()">
+                                                <i class="fas fa-chart-line"></i> Analyze Language
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-file-text fa-3x text-info mb-3"></i>
+                                            <h5 class="card-title">More Tools</h5>
+                                            <p class="card-text">Additional language file tools will be available here.</p>
+                                            <button class="btn btn-outline-secondary" disabled>
+                                                <i class="fas fa-cog"></i> Coming Soon
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Area -->
+                    <div id="resultsArea" style="display: none;">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-list"></i> Language Files Found</h5>
+                            </div>
+                            <div class="card-body">
+                                <div id="resultsContent">
+                                    <!-- Results will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loading Indicator -->
+                    <div id="loadingIndicator" style="display: none;">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-spinner fa-spin fa-2x text-primary mb-3"></i>
+                                <h5>Scanning for language files...</h5>
+                                <p class="text-muted">This may take a moment depending on the size of the world.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function findLanguageFiles() {
+    // Show loading indicator
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('resultsArea').style.display = 'none';
+    
+    // Make API call to find language files
+    fetch(`/find_language_files/{{ world.id }}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            
+            if (data.success) {
+                displayLanguageFiles(data);
+            } else {
+                displayError(data.error || 'Unknown error occurred');
+            }
+        })
+        .catch(error => {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            displayError('Network error: ' + error.message);
+        });
+}
+
+function analyzeLanguage() {
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const loadingTitle = loadingIndicator.querySelector('h5');
+    const loadingText = loadingIndicator.querySelector('p');
+    
+    loadingTitle.textContent = 'Analyzing language complexity...';
+    loadingText.textContent = 'This may take a moment while we analyze the text content.';
+    loadingIndicator.style.display = 'block';
+    document.getElementById('resultsArea').style.display = 'none';
+    
+    // Make API call to analyze language
+    fetch(`/analyze_language/{{ world.id }}`)
+        .then(response => response.json())
+        .then(data => {
+            loadingIndicator.style.display = 'none';
+            // Reset loading text for future use
+            loadingTitle.textContent = 'Scanning for language files...';
+            loadingText.textContent = 'This may take a moment depending on the size of the world.';
+            
+            if (data.success) {
+                displayLanguageAnalysis(data);
+            } else {
+                displayError(data.error || 'Unknown error occurred');
+            }
+        })
+        .catch(error => {
+            loadingIndicator.style.display = 'none';
+            // Reset loading text for future use
+            loadingTitle.textContent = 'Scanning for language files...';
+            loadingText.textContent = 'This may take a moment depending on the size of the world.';
+            displayError('Network error: ' + error.message);
+        });
+}
+
+function displayLanguageFiles(data) {
+    const resultsContent = document.getElementById('resultsContent');
+    
+    if (data.language_files.length === 0) {
+        resultsContent.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-search fa-2x text-muted mb-3"></i>
+                <h6 class="text-muted">No language files found</h6>
+                <p class="text-muted">This world doesn't contain any .lang files.</p>
+            </div>
+        `;
+    } else {
+        let html = `
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> Found <strong>${data.total_files}</strong> language file(s)
+            </div>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>File Name</th>
+                            <th>Path</th>
+                            <th>Size</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        data.language_files.forEach(file => {
+            html += `
+                <tr>
+                    <td>
+                        <i class="fas fa-file-text text-primary me-2"></i>
+                        ${file.name}
+                    </td>
+                    <td>
+                        <small class="text-muted">${file.relative_path}</small>
+                    </td>
+                    <td>${file.size_kb} KB</td>
+                    <td>
+                        <a href="/view_language_file/{{ world.id }}/${encodeURIComponent(file.relative_path)}" 
+                           class="btn btn-sm btn-outline-primary me-1">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        <a href="/download_language_file/{{ world.id }}/${encodeURIComponent(file.relative_path)}" 
+                           class="btn btn-sm btn-outline-success">
+                            <i class="fas fa-download"></i> Download
+                        </a>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        resultsContent.innerHTML = html;
+    }
+    
+    document.getElementById('resultsArea').style.display = 'block';
+}
+
+function displayLanguageAnalysis(data) {
+    const resultsContent = document.getElementById('resultsContent');
+    const analysis = data.analysis;
+    
+    let html = `
+        <div class="alert alert-success">
+            <i class="fas fa-chart-line"></i> Language analysis completed for <strong>${analysis.analyzed_file.name}</strong>
+        </div>
+        
+        <!-- Quick Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">${analysis.reading_level}</h5>
+                        <p class="card-text"><small>Reading Level</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">${analysis.target_age}</h5>
+                        <p class="card-text"><small>Target Age</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-info">Grade ${analysis.flesch_kincaid_grade}</h5>
+                        <p class="card-text"><small>Grade Level</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">${analysis.reading_time_minutes} min</h5>
+                        <p class="card-text"><small>Reading Time</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detailed Analysis -->
+        <div class="row">
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-chart-bar"></i> Readability Scores</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <td>Flesch Reading Ease</td>
+                                <td><strong>${analysis.flesch_reading_ease}</strong></td>
+                                <td><small class="text-muted">${analysis.ease_interpretation}</small></td>
+                            </tr>
+                            <tr>
+                                <td>Flesch-Kincaid Grade</td>
+                                <td><strong>${analysis.flesch_kincaid_grade}</strong></td>
+                                <td><small class="text-muted">Grade level</small></td>
+                            </tr>
+                            <tr>
+                                <td>Gunning Fog Index</td>
+                                <td><strong>${analysis.gunning_fog}</strong></td>
+                                <td><small class="text-muted">Years of education</small></td>
+                            </tr>
+                            <tr>
+                                <td>SMOG Index</td>
+                                <td><strong>${analysis.smog_index}</strong></td>
+                                <td><small class="text-muted">Grade level</small></td>
+                            </tr>
+                            <tr>
+                                <td>Coleman-Liau Index</td>
+                                <td><strong>${analysis.coleman_liau_index}</strong></td>
+                                <td><small class="text-muted">Grade level</small></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-text-width"></i> Text Statistics</h6>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <tr>
+                                <td>Total Words</td>
+                                <td><strong>${analysis.word_count.toLocaleString()}</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Total Characters</td>
+                                <td><strong>${analysis.char_count.toLocaleString()}</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Sentences</td>
+                                <td><strong>${analysis.sentence_count}</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Average Sentence Length</td>
+                                <td><strong>${analysis.avg_sentence_length} words</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Average Syllables per Word</td>
+                                <td><strong>${analysis.avg_syllables_per_word}</strong></td>
+                            </tr>
+                            <tr>
+                                <td>Difficult Words</td>
+                                <td><strong>${analysis.difficult_words}</strong></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- File Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-file-alt"></i> Analyzed File Information</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>File:</strong> ${analysis.analyzed_file.name}</p>
+                        <p><strong>Path:</strong> <code>${analysis.analyzed_file.path}</code></p>
+                        <p><strong>File Size:</strong> ${analysis.analyzed_file.size_kb} KB</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Language Files Found:</strong> ${analysis.analyzed_file.total_files_found}</p>
+                        <p><strong>Extracted Text Length:</strong> ${analysis.full_text_length.toLocaleString()} characters</p>
+                        <p><strong>Analysis Date:</strong> ${new Date().toLocaleDateString()}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sample Text -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-quote-left"></i> Sample Text (First 500 characters)</h6>
+            </div>
+            <div class="card-body">
+                <pre class="bg-light p-3 rounded" style="white-space: pre-wrap; font-size: 14px;">${analysis.sample_text}</pre>
+            </div>
+        </div>
+        
+        <!-- Download PDF Report -->
+        <div class="card border-success">
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="fas fa-file-pdf"></i> Generate PDF Report</h6>
+            </div>
+            <div class="card-body">
+                <p class="card-text">Download a comprehensive PDF report containing all analysis results, world information, and metadata.</p>
+                <a href="{{ url_for('download_analysis_pdf', unpacked_id=world.id) }}" class="btn btn-success">
+                    <i class="fas fa-download"></i> Download PDF Report
+                </a>
+            </div>
+        </div>
+    `;
+    
+    resultsContent.innerHTML = html;
+    document.getElementById('resultsArea').style.display = 'block';
+}
+
+function displayError(errorMessage) {
+    const resultsContent = document.getElementById('resultsContent');
+    
+    // Determine error type and provide helpful suggestions
+    let suggestions = '';
+    let errorIcon = 'fas fa-exclamation-triangle';
+    let errorClass = 'alert-danger';
+    
+    if (errorMessage.includes('No language files')) {
+        errorIcon = 'fas fa-search';
+        errorClass = 'alert-warning';
+        suggestions = `
+            <div class="mt-3">
+                <h6><i class="fas fa-lightbulb"></i> Suggestions:</h6>
+                <ul class="mb-0">
+                    <li>This world may not contain any .lang files</li>
+                    <li>Language files are typically found in resource packs or behavior packs</li>
+                    <li>Try using "Find Language Files" first to see what files are available</li>
+                    <li>Some worlds may use default Minecraft language files instead of custom ones</li>
+                </ul>
+            </div>
+        `;
+    } else if (errorMessage.includes('too small') || errorMessage.includes('Insufficient')) {
+        errorIcon = 'fas fa-file-text';
+        errorClass = 'alert-info';
+        suggestions = `
+            <div class="mt-3">
+                <h6><i class="fas fa-lightbulb"></i> Suggestions:</h6>
+                <ul class="mb-0">
+                    <li>The language file exists but doesn't contain enough text for reliable analysis</li>
+                    <li>Try analyzing a different world with more comprehensive language files</li>
+                    <li>Some worlds may have minimal custom text and rely on default Minecraft translations</li>
+                    <li>Educational worlds typically have more custom text suitable for analysis</li>
+                </ul>
+            </div>
+        `;
+    } else if (errorMessage.includes('extract readable text')) {
+        errorIcon = 'fas fa-file-code';
+        errorClass = 'alert-warning';
+        suggestions = `
+            <div class="mt-3">
+                <h6><i class="fas fa-lightbulb"></i> Suggestions:</h6>
+                <ul class="mb-0">
+                    <li>The language file may be corrupted or in an unsupported format</li>
+                    <li>The file might contain only formatting codes without actual text</li>
+                    <li>Try downloading the file first to verify its contents</li>
+                    <li>Check if other language files in this world contain readable text</li>
+                </ul>
+            </div>
+        `;
+    } else if (errorMessage.includes('Permission denied')) {
+        errorIcon = 'fas fa-lock';
+        errorClass = 'alert-danger';
+        suggestions = `
+            <div class="mt-3">
+                <h6><i class="fas fa-lightbulb"></i> Solutions:</h6>
+                <ul class="mb-0">
+                    <li>The system cannot access the language files due to permission restrictions</li>
+                    <li>Try re-uploading and unpacking the world</li>
+                    <li>Contact your system administrator if the problem persists</li>
+                </ul>
+            </div>
+        `;
+    } else {
+        suggestions = `
+            <div class="mt-3">
+                <h6><i class="fas fa-tools"></i> Troubleshooting:</h6>
+                <ul class="mb-0">
+                    <li>Try using "Find Language Files" to see what files are available</li>
+                    <li>Ensure the world has been properly unpacked</li>
+                    <li>Try analyzing a different world</li>
+                    <li>Contact support if the issue persists</li>
+                </ul>
+            </div>
+        `;
+    }
+    
+    resultsContent.innerHTML = `
+        <div class="alert ${errorClass}">
+            <div class="d-flex align-items-start">
+                <i class="${errorIcon} fa-2x me-3 mt-1"></i>
+                <div class="flex-grow-1">
+                    <h5 class="alert-heading">Analysis Not Available</h5>
+                    <p class="mb-0">${errorMessage}</p>
+                    ${suggestions}
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle"></i> About Language Analysis</h6>
+            </div>
+            <div class="card-body">
+                <p><strong>Language Analysis Requirements:</strong></p>
+                <ul>
+                    <li>At least one .lang file must be present in the unpacked world</li>
+                    <li>Files must contain readable text content (minimum 50 characters)</li>
+                    <li>Text should include actual words, not just formatting codes or symbols</li>
+                    <li>Works best with educational content that has custom text</li>
+                </ul>
+                
+                <div class="mt-3">
+                    <button class="btn btn-primary me-2" onclick="findLanguageFiles()">
+                        <i class="fas fa-search"></i> Find Language Files
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="analyzeLanguage()">
+                        <i class="fas fa-redo"></i> Try Analysis Again
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('resultsArea').style.display = 'block';
+}
+</script>
+{% endblock %}

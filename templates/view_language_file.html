@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}View Language File - {{ file_info.name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="content-area">
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="card card-minecraft mb-4">
+                        <div class="card-header minecraft-theme">
+                            <h3><i class="fas fa-file-text"></i> Language File Viewer</h3>
+                            <p class="mb-0">{{ file_info.name }}</p>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h5>File Information</h5>
+                                    <ul class="list-unstyled">
+                                        <li><strong>File Name:</strong> {{ file_info.name }}</li>
+                                        <li><strong>Path:</strong> <code>{{ file_info.path }}</code></li>
+                                        <li><strong>Size:</strong> {{ (file_info.size / 1024)|round(2) }} KB ({{ file_info.size }} bytes)</li>
+                                        <li><strong>Lines:</strong> {{ file_info.lines }}</li>
+                                        <li><strong>From World:</strong> {{ world.original_filename }}</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <a href="{{ url_for('language_tools_world', unpacked_id=world.id) }}" 
+                                       class="btn btn-secondary me-2">
+                                        <i class="fas fa-arrow-left"></i> Back
+                                    </a>
+                                    <a href="{{ url_for('download_language_file', unpacked_id=world.id, file_path=file_info.path) }}" 
+                                       class="btn btn-success">
+                                        <i class="fas fa-download"></i> Download
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Contents -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-code"></i> File Contents</h5>
+                            <div class="float-end">
+                                <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard()">
+                                    <i class="fas fa-copy"></i> Copy All
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" onclick="toggleLineNumbers()">
+                                    <i class="fas fa-list-ol"></i> Toggle Line Numbers
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <pre id="fileContent" class="mb-0 p-3" style="background-color: #f8f9fa; border: none; max-height: 600px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 14px; line-height: 1.4;"><code>{{ content }}</code></pre>
+                        </div>
+                    </div>
+
+                    <!-- File Analysis -->
+                    <div class="card mt-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-chart-bar"></i> Quick Analysis</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h6>Total Lines</h6>
+                                        <span class="badge bg-primary fs-5">{{ file_info.lines }}</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h6>File Size</h6>
+                                        <span class="badge bg-info fs-5">{{ (file_info.size / 1024)|round(2) }} KB</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-center">
+                                        <h6>Characters</h6>
+                                        <span class="badge bg-success fs-5">{{ content|length }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let showLineNumbers = false;
+
+function copyToClipboard() {
+    const content = document.querySelector('#fileContent code').textContent;
+    navigator.clipboard.writeText(content).then(function() {
+        // Show temporary success message
+        const btn = event.target.closest('button');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-secondary');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalText;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        }, 2000);
+    }).catch(function(err) {
+        alert('Failed to copy to clipboard');
+    });
+}
+
+function toggleLineNumbers() {
+    const contentElement = document.querySelector('#fileContent code');
+    const content = contentElement.textContent;
+    
+    if (!showLineNumbers) {
+        // Add line numbers
+        const lines = content.split('\n');
+        const numberedLines = lines.map((line, index) => {
+            const lineNumber = (index + 1).toString().padStart(4, ' ');
+            return `${lineNumber} | ${line}`;
+        });
+        contentElement.textContent = numberedLines.join('\n');
+        showLineNumbers = true;
+    } else {
+        // Remove line numbers
+        const lines = content.split('\n');
+        const cleanLines = lines.map(line => {
+            const match = line.match(/^\s*\d+\s*\|\s*(.*)$/);
+            return match ? match[1] : line;
+        });
+        contentElement.textContent = cleanLines.join('\n');
+        showLineNumbers = false;
+    }
+}
+</script>
+{% endblock %}

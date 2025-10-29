@@ -1,0 +1,80 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# Flask
+instance/
+.webassets-cache
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite3
+
+# User uploads and MCEdu Toolkit data
+uploads/
+static/uploads/
+
+# Store directory (uploaded world files)
+store/*                   # Ignore all files in store directory
+!store/README.md         # But keep the README file
+
+# Unpacked directory (extracted world contents)
+unpacked/*               # Ignore all files in unpacked directory
+!unpacked/README.md      # But keep the README file
+
+# Metadata files
+metadata.json            # World metadata database
+unpacked_metadata.json   # Unpacked world tracking database
+/metadata.json           # Root level metadata files
+/unpacked_metadata.json
