@@ -12,7 +12,7 @@
                         <div class="card-body p-4 text-center">
                             <i class="fas fa-cube fa-3x text-success mb-3"></i>
                             <h1 class="mb-3">Welcome to MCEdu Toolkit</h1>
-                            <h4 class="text-muted mb-3">Hello, {{ user.username }}!</h4>
+                            <h4 class="text-muted mb-3">Hello, {{ user.get_first_name() or user.username }}!</h4>
                             <p class="lead mb-4">
                                 Manage your Minecraft Education worlds and templates with ease.
                             </p>

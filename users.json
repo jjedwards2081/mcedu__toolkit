@@ -1,0 +1,22 @@
+{
+  "admin": {
+    "id": "1",
+    "username": "admin",
+    "password_hash": "pbkdf2:sha256:600000$4SMbErT08DKxCaq5$45c6afc27c0752b2b230575e53a5175fcb1596224f48c124f38273aeaaf4093f",
+    "is_admin": true,
+    "created_date": "2025-10-31T19:15:04.653038",
+    "first_name": "Admin",
+    "surname": "User",
+    "email": "admin@example.com"
+  },
+  "juedwards": {
+    "id": "2",
+    "username": "juedwards",
+    "password_hash": "pbkdf2:sha256:600000$QzQc1ZGEvOtdyTfJ$01eb426c8a0f19304295d8c025f0f6bc155cce211dac94e8aaaa10abc6a7470b",
+    "first_name": "Justin",
+    "surname": "Edwards",
+    "email": "jnredwards@gmail.com",
+    "is_admin": false,
+    "created_date": "2025-11-02T13:25:45.458545"
+  }
+}

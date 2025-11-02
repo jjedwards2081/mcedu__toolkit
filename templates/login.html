@@ -27,10 +27,16 @@
                     <i class="fas fa-sign-in-alt"></i> Login
                 </button>
             </form>
+            
+            <div class="text-center mt-3">
+                <a href="{{ url_for('forgot_password') }}" class="text-muted text-decoration-none">
+                    <small><i class="fas fa-question-circle"></i> Forgot your password?</small>
+                </a>
+            </div>
         </div>
         <div class="card-footer text-center">
             <small class="text-muted">
-                Demo credentials: admin/password123 or user/user123
+                Demo credentials: admin/password123
             </small>
         </div>
     </div>

@@ -68,11 +68,14 @@
                                 <div class="col-md-4 mb-3">
                                     <div class="card h-100">
                                         <div class="card-body text-center">
-                                            <i class="fas fa-file-text fa-3x text-info mb-3"></i>
-                                            <h5 class="card-title">More Tools</h5>
-                                            <p class="card-text">Additional language file tools will be available here.</p>
-                                            <button class="btn btn-outline-secondary" disabled>
-                                                <i class="fas fa-cog"></i> Coming Soon
+                                            <i class="fas fa-spell-check fa-3x text-warning mb-3"></i>
+                                            <h5 class="card-title">Spell Checker</h5>
+                                            <p class="card-text">Check for spelling errors and get suggestions for corrections in educational content.</p>
+                                            <button class="btn btn-warning" onclick="performSpellCheck()">
+                                                <i class="fas fa-spell-check"></i> Check Spelling
+                                            </button>
+                                            <button class="btn btn-outline-secondary ms-2" onclick="viewCustomDictionary()">
+                                                <i class="fas fa-book"></i> Dictionary
                                             </button>
                                         </div>
                                     </div>
@@ -172,6 +175,41 @@ function analyzeLanguage() {
         });
 }
 
+function performSpellCheck() {
+    // Show loading indicator
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    const loadingTitle = loadingIndicator.querySelector('h5');
+    const loadingText = loadingIndicator.querySelector('p');
+    
+    loadingTitle.textContent = 'Checking spelling...';
+    loadingText.textContent = 'This may take a moment while we check for spelling errors in educational content.';
+    loadingIndicator.style.display = 'block';
+    document.getElementById('resultsArea').style.display = 'none';
+    
+    // Make API call to perform spell check
+    fetch(`/spell_check/{{ world.id }}`)
+        .then(response => response.json())
+        .then(data => {
+            loadingIndicator.style.display = 'none';
+            // Reset loading text for future use
+            loadingTitle.textContent = 'Scanning for language files...';
+            loadingText.textContent = 'This may take a moment depending on the size of the world.';
+            
+            if (data.success) {
+                displaySpellCheckResults(data);
+            } else {
+                displayError(data.error || 'Unknown error occurred');
+            }
+        })
+        .catch(error => {
+            loadingIndicator.style.display = 'none';
+            // Reset loading text for future use
+            loadingTitle.textContent = 'Scanning for language files...';
+            loadingText.textContent = 'This may take a moment depending on the size of the world.';
+            displayError('Network error: ' + error.message);
+        });
+}
+
 function displayLanguageFiles(data) {
     const resultsContent = document.getElementById('resultsContent');
     
@@ -193,7 +231,7 @@ function displayLanguageFiles(data) {
                     <thead>
                         <tr>
                             <th>File Name</th>
-                            <th>Path</th>
+                            <th>Path & Language</th>
                             <th>Size</th>
                             <th>Actions</th>
                         </tr>
@@ -204,15 +242,17 @@ function displayLanguageFiles(data) {
         data.language_files.forEach(file => {
             html += `
                 <tr>
-                    <td>
-                        <i class="fas fa-file-text text-primary me-2"></i>
-                        ${file.name}
-                    </td>
-                    <td>
-                        <small class="text-muted">${file.relative_path}</small>
-                    </td>
-                    <td>${file.size_kb} KB</td>
-                    <td>
+                                <td>
+                                    <i class="fas fa-file-text text-primary me-2"></i>
+                                    ${file.name}
+                                    ${file.is_english ? '<span class="badge bg-success ms-2">English</span>' : ''}
+                                </td>
+                                <td>
+                                    <small class="text-muted">${file.relative_path}</small>
+                                    <br><small class="text-info">${file.language_code || 'Unknown Language'}</small>
+                                </td>
+                                <td>${file.size_kb} KB</td>
+                                <td>
                         <a href="/view_language_file/{{ world.id }}/${encodeURIComponent(file.relative_path)}" 
                            class="btn btn-sm btn-outline-primary me-1">
                             <i class="fas fa-eye"></i> View
@@ -243,8 +283,9 @@ function displayLanguageAnalysis(data) {
     const analysis = data.analysis;
     
     let html = `
-        <div class="alert alert-success">
+        <div class="alert ${analysis.analyzed_file.is_english ? 'alert-success' : 'alert-warning'}">
             <i class="fas fa-chart-line"></i> Language analysis completed for <strong>${analysis.analyzed_file.name}</strong>
+            <br><small>${analysis.analyzed_file.analysis_note}</small>
         </div>
         
         <!-- Quick Summary Cards -->
@@ -368,14 +409,85 @@ function displayLanguageAnalysis(data) {
                 <div class="row">
                     <div class="col-md-6">
                         <p><strong>File:</strong> ${analysis.analyzed_file.name}</p>
+                        <p><strong>Language:</strong> 
+                            <span class="badge ${analysis.analyzed_file.is_english ? 'bg-success' : 'bg-warning'}">${analysis.analyzed_file.language_code}</span>
+                            ${analysis.analyzed_file.is_english ? '<i class="fas fa-check-circle text-success ms-1"></i>' : '<i class="fas fa-exclamation-triangle text-warning ms-1"></i>'}
+                        </p>
                         <p><strong>Path:</strong> <code>${analysis.analyzed_file.path}</code></p>
                         <p><strong>File Size:</strong> ${analysis.analyzed_file.size_kb} KB</p>
                     </div>
                     <div class="col-md-6">
-                        <p><strong>Total Language Files Found:</strong> ${analysis.analyzed_file.total_files_found}</p>
+                        <p><strong>Total Language Files:</strong> ${analysis.analyzed_file.total_files_found}</p>
+                        <p><strong>English Files:</strong> ${analysis.analyzed_file.english_files_found} 
+                           <span class="text-muted">| Other: ${analysis.analyzed_file.non_english_files_found}</span></p>
                         <p><strong>Extracted Text Length:</strong> ${analysis.full_text_length.toLocaleString()} characters</p>
                         <p><strong>Analysis Date:</strong> ${new Date().toLocaleDateString()}</p>
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Content Filtering Information -->
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-white">
+                <h6 class="mb-0"><i class="fas fa-filter"></i> Educational Content Filtering</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12 mb-3">
+                        <div class="alert alert-info mb-3">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>Smart Filtering Applied:</strong> ${analysis.filtering_info.description}
+                        </div>
+                        ${!analysis.analyzed_file.is_english ? 
+                            '<div class="alert alert-warning mb-3"><i class="fas fa-exclamation-triangle"></i> <strong>Language Notice:</strong> Analysis performed on non-English content. Results may not accurately reflect English readability standards. For best results, use worlds with English (en_US) language files.</div>' 
+                            : ''}
+                        <div class="row">
+                            <div class="col-md-4 text-center">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="text-primary">${analysis.analyzed_file.total_entries}</h5>
+                                        <small>Total Entries in File</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="text-success">${analysis.analyzed_file.educational_entries_estimated}</h5>
+                                        <small>Educational Entries</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-center">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5 class="text-warning">${analysis.analyzed_file.content_filtered_percentage}%</h5>
+                                        <small>Content Used</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-success"><i class="fas fa-check"></i> Content Included:</h6>
+                        <ul class="list-unstyled">
+                            ${analysis.filtering_info.included_types.map(type => `<li><i class="fas fa-check-circle text-success me-2"></i>${type}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-danger"><i class="fas fa-times"></i> Content Excluded:</h6>
+                        <ul class="list-unstyled">
+                            ${analysis.filtering_info.excluded_types.map(type => `<li><i class="fas fa-times-circle text-danger me-2"></i>${type}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-success mt-3 mb-0">
+                    <small><i class="fas fa-graduation-cap"></i> <strong>Quality Note:</strong> ${analysis.filtering_info.quality_note}</small>
                 </div>
             </div>
         </div>
@@ -408,6 +520,405 @@ function displayLanguageAnalysis(data) {
     document.getElementById('resultsArea').style.display = 'block';
 }
 
+function displaySpellCheckResults(data) {
+    const resultsContent = document.getElementById('resultsContent');
+    const spellCheck = data.spell_check;
+    const stats = spellCheck.statistics;
+    const errors = spellCheck.errors;
+    const quality = spellCheck.quality_assessment;
+    
+    let qualityColor = quality.level === 'Excellent' ? 'success' : 
+                      quality.level === 'Good' ? 'info' :
+                      quality.level === 'Fair' ? 'warning' : 'danger';
+    
+    let html = `
+        <div class="alert ${spellCheck.analyzed_file.is_english ? 'alert-success' : 'alert-warning'}">
+            <i class="fas fa-spell-check"></i> Spell checking completed for <strong>${spellCheck.analyzed_file.name}</strong>
+            <br><small>${spellCheck.analyzed_file.spell_check_note}</small>
+        </div>
+        
+        <!-- Quick Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-${qualityColor}">${quality.level}</h5>
+                        <p class="card-text"><small>Spelling Quality</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success">${stats.accuracy_percentage}%</h5>
+                        <p class="card-text"><small>Accuracy</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary">${stats.total_unique_words}</h5>
+                        <p class="card-text"><small>Words Checked</small></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-${stats.misspelled_words > 0 ? 'danger' : 'success'}">${stats.misspelled_words}</h5>
+                        <p class="card-text"><small>Errors Found</small></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Quality Assessment -->
+        <div class="card mb-4 border-${qualityColor}">
+            <div class="card-header bg-${qualityColor} text-white">
+                <h6 class="mb-0"><i class="fas fa-chart-bar"></i> Quality Assessment</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-0">${quality.description}</p>
+            </div>
+        </div>
+    `;
+    
+    // Only show errors if there are any
+    if (stats.misspelled_words > 0) {
+        html += `
+        <!-- Spelling Errors -->
+        <div class="row">
+        `;
+        
+        // Common Errors (used more than once)
+        if (errors.common_errors.length > 0) {
+            html += `
+            <div class="col-md-6 mb-4">
+                <div class="card border-danger">
+                    <div class="card-header bg-danger text-white">
+                        <h6 class="mb-0"><i class="fas fa-exclamation-triangle"></i> Common Errors (${errors.common_errors.length})</h6>
+                        <small>Words that appear multiple times</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Word</th>
+                                        <th>Count</th>
+                                        <th>Suggestions</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            
+            errors.common_errors.forEach(error => {
+                html += `
+                    <tr>
+                        <td><code class="text-danger">${error.word}</code></td>
+                        <td><span class="badge bg-warning text-dark">${error.context_usage}</span></td>
+                        <td>
+                            ${error.suggestions.length > 0 ? 
+                                error.suggestions.slice(0, 3).map(s => `<span class="badge bg-success me-1">${s}</span>`).join('') :
+                                '<span class="text-muted">No suggestions</span>'
+                            }
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="addToDictionary('${error.word}', this)">
+                                <i class="fas fa-plus"></i> Add to Dictionary
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+        
+        // Unique Errors (appear only once)
+        if (errors.unique_errors.length > 0) {
+            html += `
+            <div class="col-md-6 mb-4">
+                <div class="card border-warning">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0"><i class="fas fa-info-circle"></i> Unique Errors (${errors.unique_errors.length})</h6>
+                        <small>Words that appear only once</small>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Word</th>
+                                        <th>Suggestions</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+            `;
+            
+            errors.unique_errors.forEach(error => {
+                html += `
+                    <tr>
+                        <td><code class="text-warning">${error.word}</code></td>
+                        <td>
+                            ${error.suggestions.length > 0 ? 
+                                error.suggestions.slice(0, 3).map(s => `<span class="badge bg-success me-1">${s}</span>`).join('') :
+                                '<span class="text-muted">No suggestions</span>'
+                            }
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="addToDictionary('${error.word}', this)">
+                                <i class="fas fa-plus"></i> Add to Dictionary
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+        }
+        
+        html += `
+        </div>
+        `;
+    } else {
+        // No errors found
+        html += `
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i> <strong>Perfect!</strong> No spelling errors were found in the educational content.
+        </div>
+        `;
+    }
+    
+    // File Information
+        html += `
+        <!-- File Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-file-alt"></i> Checked File Information</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>File:</strong> ${spellCheck.analyzed_file.name}</p>
+                        <p><strong>Language:</strong> 
+                            <span class="badge ${spellCheck.analyzed_file.is_english ? 'bg-success' : 'bg-warning'}">${spellCheck.analyzed_file.language_code}</span>
+                            ${spellCheck.analyzed_file.is_english ? '<i class="fas fa-check-circle text-success ms-1"></i>' : '<i class="fas fa-exclamation-triangle text-warning ms-1"></i>'}
+                        </p>
+                        <p><strong>Path:</strong> <code>${spellCheck.analyzed_file.path}</code></p>
+                        <p><strong>File Size:</strong> ${spellCheck.analyzed_file.size_kb} KB</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Total Language Files:</strong> ${spellCheck.analyzed_file.total_files_found}</p>
+                        <p><strong>English Files:</strong> ${spellCheck.analyzed_file.english_files_found} 
+                           <span class="text-muted">| Other: ${spellCheck.analyzed_file.non_english_files_found}</span></p>
+                        <p><strong>Text Length:</strong> ${stats.extracted_text_length.toLocaleString()} characters</p>
+                        <p><strong>Check Date:</strong> ${new Date().toLocaleDateString()}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Custom Dictionary Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6><i class="fas fa-book"></i> Custom Dictionary</h6>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">
+                    <i class="fas fa-info-circle text-info"></i> 
+                    The spell checker uses a custom dictionary that includes common Minecraft and educational terms.
+                    You can add words to this dictionary using the "Add to Dictionary" buttons above.
+                </p>
+                <p class="mb-0">
+                    <strong>Custom Dictionary Status:</strong> 
+                    <span class="badge bg-success">Active</span>
+                    <small class="text-muted ms-2">
+                        Words added to the dictionary will be recognized in future spell checks.
+                    </small>
+                </p>
+            </div>
+        </div>
+    `;    // Language Warning for non-English files
+    if (!spellCheck.analyzed_file.is_english) {
+        html += `
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle"></i> <strong>Language Notice:</strong> 
+            Spell checking performed on non-English content. Some words may be flagged as errors even if they are correct in their original language. 
+            For best results, use worlds with English (en_US) language files.
+        </div>
+        `;
+    }
+    
+    resultsContent.innerHTML = html;
+    document.getElementById('resultsArea').style.display = 'block';
+}
+
+function viewCustomDictionary() {
+    fetch('/get_custom_dictionary')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayCustomDictionary(data.words, data.count);
+        } else {
+            displayError(data.error || 'Failed to load custom dictionary');
+        }
+    })
+    .catch(error => {
+        console.error('Error loading custom dictionary:', error);
+        displayError('Error loading custom dictionary');
+    });
+}
+
+function displayCustomDictionary(words, count) {
+    const resultsContent = document.getElementById('resultsContent');
+    
+    // Create dictionary display
+    let html = `
+        <div class="alert alert-info">
+            <i class="fas fa-book"></i> <strong>Custom Dictionary</strong> - ${count} words
+            <p class="mb-0 mt-2">These Minecraft and educational terms are recognized by the spell checker.</p>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-list"></i> Dictionary Words</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+    `;
+    
+    // Display words in columns
+    const wordsPerColumn = Math.ceil(words.length / 4);
+    for (let col = 0; col < 4; col++) {
+        html += '<div class="col-md-3"><ul class="list-unstyled">';
+        const startIdx = col * wordsPerColumn;
+        const endIdx = Math.min(startIdx + wordsPerColumn, words.length);
+        
+        for (let i = startIdx; i < endIdx; i++) {
+            html += `<li><span class="badge bg-light text-dark me-1">${words[i]}</span></li>`;
+        }
+        html += '</ul></div>';
+    }
+    
+    html += `
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle"></i> About the Custom Dictionary</h6>
+            </div>
+            <div class="card-body">
+                <p>The custom dictionary includes:</p>
+                <ul>
+                    <li><strong>Minecraft Terms:</strong> Common words like "hotbar", "crafting", "redstone", "nether"</li>
+                    <li><strong>Educational Terms:</strong> Words related to learning and instruction</li>
+                    <li><strong>User-Added Words:</strong> Terms you've added using "Add to Dictionary" buttons</li>
+                </ul>
+                <p class="mb-0">
+                    <strong>Note:</strong> Words in this dictionary will not be flagged as spelling errors during spell checking.
+                </p>
+            </div>
+        </div>
+    `;
+    
+    resultsContent.innerHTML = html;
+    document.getElementById('resultsArea').style.display = 'block';
+}
+
+function addToDictionary(word, buttonElement) {
+    // Disable the button and show loading state
+    const originalText = buttonElement.innerHTML;
+    buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+    buttonElement.disabled = true;
+    
+    fetch('/add_to_dictionary', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ word: word })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success state
+            buttonElement.innerHTML = '<i class="fas fa-check"></i> Added';
+            buttonElement.className = 'btn btn-sm btn-success';
+            buttonElement.disabled = true;
+            
+            // Show success message
+            showNotification(`"${word}" added to custom dictionary!`, 'success');
+            
+            // Remove the row from the error list after a short delay
+            setTimeout(() => {
+                const row = buttonElement.closest('tr');
+                if (row) {
+                    row.style.transition = 'opacity 0.5s';
+                    row.style.opacity = '0.5';
+                    row.style.textDecoration = 'line-through';
+                }
+            }, 1000);
+        } else {
+            // Show error state
+            buttonElement.innerHTML = originalText;
+            buttonElement.disabled = false;
+            showNotification(data.error || 'Failed to add word to dictionary', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding word to dictionary:', error);
+        buttonElement.innerHTML = originalText;
+        buttonElement.disabled = false;
+        showNotification('Error adding word to dictionary', 'error');
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'info'} alert-dismissible fade show`;
+    notification.style.position = 'fixed';
+    notification.style.top = '20px';
+    notification.style.right = '20px';
+    notification.style.zIndex = '9999';
+    notification.style.minWidth = '300px';
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    // Add to page
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
 function displayError(errorMessage) {
     const resultsContent = document.getElementById('resultsContent');
     
@@ -425,22 +936,39 @@ function displayError(errorMessage) {
                 <ul class="mb-0">
                     <li>This world may not contain any .lang files</li>
                     <li>Language files are typically found in resource packs or behavior packs</li>
+                    <li>For best results, worlds should include English language files (en_US.lang)</li>
                     <li>Try using "Find Language Files" first to see what files are available</li>
                     <li>Some worlds may use default Minecraft language files instead of custom ones</li>
                 </ul>
             </div>
         `;
     } else if (errorMessage.includes('too small') || errorMessage.includes('Insufficient')) {
-        errorIcon = 'fas fa-file-text';
+        errorIcon = 'fas fa-filter';
         errorClass = 'alert-info';
         suggestions = `
             <div class="mt-3">
-                <h6><i class="fas fa-lightbulb"></i> Suggestions:</h6>
+                <h6><i class="fas fa-lightbulb"></i> About Educational Content Filtering:</h6>
                 <ul class="mb-0">
-                    <li>The language file exists but doesn't contain enough text for reliable analysis</li>
-                    <li>Try analyzing a different world with more comprehensive language files</li>
-                    <li>Some worlds may have minimal custom text and rely on default Minecraft translations</li>
-                    <li>Educational worlds typically have more custom text suitable for analysis</li>
+                    <li>The analysis now focuses only on educational content that users actually see</li>
+                    <li>Technical content, system messages, and UI elements are filtered out</li>
+                    <li>This world may contain mainly technical content rather than user-facing educational text</li>
+                    <li>Try a world with more NPC dialogue, instructions, or story content</li>
+                    <li>Educational worlds with custom lessons typically work best for analysis</li>
+                </ul>
+            </div>
+        `;
+    } else if (errorMessage.includes('extract') && errorMessage.includes('educational')) {
+        errorIcon = 'fas fa-graduation-cap';
+        errorClass = 'alert-warning';
+        suggestions = `
+            <div class="mt-3">
+                <h6><i class="fas fa-lightbulb"></i> Educational Content Requirements:</h6>
+                <ul class="mb-0">
+                    <li>The language file contains entries, but none appear to be educational content</li>
+                    <li>The smart filter looks for NPC dialogue, instructions, story text, and lessons</li>
+                    <li>Technical system messages, UI labels, and item names are excluded</li>
+                    <li>Try a world that includes custom educational content or storylines</li>
+                    <li>Minecraft Education Edition worlds typically have more suitable content</li>
                 </ul>
             </div>
         `;
@@ -504,10 +1032,12 @@ function displayError(errorMessage) {
             <div class="card-body">
                 <p><strong>Language Analysis Requirements:</strong></p>
                 <ul>
+                    <li><strong>English Language Files:</strong> Works best with English files (en_US.lang, en_GB.lang, etc.)</li>
                     <li>At least one .lang file must be present in the unpacked world</li>
                     <li>Files must contain readable text content (minimum 50 characters)</li>
                     <li>Text should include actual words, not just formatting codes or symbols</li>
                     <li>Works best with educational content that has custom text</li>
+                    <li>Non-English files can be analyzed but results may not reflect English readability standards</li>
                 </ul>
                 
                 <div class="mt-3">
