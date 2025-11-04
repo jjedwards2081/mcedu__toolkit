@@ -1,6 +1,6 @@
 # Minecraft Education Toolkit (MCEdu Toolkit)
 
-A comprehensive Python Flask web application for managing and analyzing Minecraft Education content. This toolkit provides educators with powerful tools to upload, unpack, analyze, and repack Minecraft Education worlds and templates.
+A comprehensive Python Flask web application for managing and analyzing Minecraft Education content. This toolkit provides educators with powerful tools to upload, unpack, analyze, edit, and repack Minecraft Education worlds and templates.
 
 ## 🚀 Features
 
@@ -25,25 +25,47 @@ A comprehensive Python Flask web application for managing and analyzing Minecraf
   - SMOG Index
   - Coleman-Liau Index
   - Automated Readability Index
-- **Educational Insights**: Target age recommendations and reading level classifications
+- **Educational Content Focus**: Analysis prioritizes educational content over technical Minecraft terms
+- **English Language Priority**: Automatically prioritizes English language files for more accurate analysis
 - **Sample Text Preview**: View extracted text content from language files
 
-### 📄 PDF Reports
+### ✏️ Language File Editor
+- **Professional Code Editor**: Monaco Editor integration with VS Code-like features
+- **Syntax Highlighting**: Custom syntax highlighting for Minecraft .lang files
+- **Dark Theme**: Professional dark theme optimized for readability
+- **Spell Checking**: Integrated spell checker with custom dictionary support
+- **Visual Error Highlighting**: Misspelled words are marked with ⚠️ symbols and suggestion comments
+- **File Selection Interface**: Browse and select language files from unpacked worlds
+- **Save Functionality**: Direct saving of changes to language files
+
+### 🎓 Educational Resources Generator
+- **Automated Content Analysis**: Extracts educational content from world language files
+- **Lesson Plan Generation**: Creates comprehensive lesson plans based on world content
+- **Quiz Generation**: Automatically generates quizzes with multiple choice questions
+- **Topic Introductions**: Creates engaging topic introduction materials
+- **Parent Communication**: Generates parent letters explaining learning objectives
+- **PDF Reports**: All educational resources are available as downloadable PDFs
+
+### 📄 Analysis & Reporting
 - **Comprehensive Reports**: Generate professional PDF analysis reports
 - **Detailed Metrics**: Include all readability scores and educational recommendations
 - **World Metadata**: Complete world information and analysis context
-- **Downloadable**: Timestamped PDF files for record keeping and sharing
+- **Timestamped Files**: All reports include generation timestamps for record keeping
 
-### 🔐 User Management
-- **Secure Authentication**: Flask-Login based user system
+### 🔐 User Management & Administration
+- **Secure Authentication**: Flask-Login based user system with password hashing
 - **Multi-user Support**: Admin and standard user roles
+- **Admin Panel**: Comprehensive user management interface for administrators
+- **Account Management**: Create, modify, and delete user accounts
 - **Session Management**: Secure login/logout functionality
+- **Password Recovery**: Forgot password functionality
 
 ### 🎨 User Interface
 - **Responsive Design**: Mobile-friendly Bootstrap interface
 - **Intuitive Navigation**: Clear, organized dashboard and tool pages
 - **Status Indicators**: Visual feedback for world states (Packed/Unpacked/Repacked)
-- **Real-time Feedback**: Flash messages for operation status
+- **Real-time Feedback**: Flash messages and notifications for operation status
+- **Professional Styling**: Minecraft-themed styling with modern UI components
 
 ## 📋 Installation
 
@@ -75,9 +97,9 @@ A comprehensive Python Flask web application for managing and analyzing Minecraf
    pip install -r requirements.txt
    ```
 
-4. **Download NLTK data (required for language analysis):**
+4. **Download NLTK data (required for language analysis and spell checking):**
    ```bash
-   python -c "import nltk; nltk.download('punkt')"
+   python -c "import nltk; nltk.download('punkt'); nltk.download('punkt_tab')"
    ```
 
 ## 🎯 Quick Start
@@ -107,11 +129,26 @@ A comprehensive Python Flask web application for managing and analyzing Minecraf
 2. World will be extracted and appear in "Unpacked Worlds" list
 3. Original world remains available for download
 
-### Language Analysis
+### Language Analysis & Editing
 1. From an unpacked world, click "Language Tools"
 2. Use "Find Language Files" to discover available .lang files
 3. Run "Language Analysis" for comprehensive readability metrics
-4. Download PDF report for detailed analysis
+4. Use "Language File Editor" to edit .lang files with professional IDE features:
+   - Select files from a browsable interface
+   - Edit with syntax highlighting and dark theme
+   - Use spell checking to identify and fix errors
+   - Save changes directly to the world files
+5. Download PDF report for detailed analysis
+
+### Educational Resources
+1. From an unpacked world, click "Educational Resources"
+2. System automatically analyzes world content for educational material
+3. Generate various teaching materials:
+   - Comprehensive lesson plans
+   - Multiple choice quizzes
+   - Topic introduction materials
+   - Parent communication letters
+4. Download all resources as professional PDF documents
 
 ### Repacking Worlds
 1. In "Unpacked Worlds", click "Repack" on any unpacked world
@@ -122,20 +159,27 @@ A comprehensive Python Flask web application for managing and analyzing Minecraf
 
 ```
 mcedu__toolkit/
-├── app.py                     # Main Flask application
-├── requirements.txt           # Python dependencies
-├── README.md                 # Documentation
-├── store/                    # Uploaded world files
-├── unpacked/                 # Extracted world contents
-├── metadata.json             # World metadata
-├── unpacked_metadata.json    # Unpacked world metadata
-└── templates/                # HTML templates
-    ├── base.html             # Base template with navigation
-    ├── login.html            # Login page
-    ├── dashboard.html        # Main dashboard
-    ├── add_world.html        # Upload page
-    ├── language_tools.html   # Language tools main page
-    └── language_tools_world.html # Individual world analysis
+├── app.py                           # Main Flask application
+├── requirements.txt                 # Python dependencies
+├── README.md                       # Project documentation
+├── users.json                      # User accounts database
+├── custom_dictionary.txt           # Custom spell checker dictionary
+├── store/                          # Uploaded world files (.mcworld/.mctemplate)
+├── unpacked/                       # Extracted world contents
+└── templates/                      # HTML templates
+    ├── base.html                   # Base template with navigation
+    ├── login.html                  # Login and authentication
+    ├── forgot_password.html        # Password recovery
+    ├── dashboard.html              # Main dashboard
+    ├── add_world.html              # File upload interface
+    ├── admin_panel.html            # User management (admin only)
+    ├── language_tools.html         # Language analysis main page
+    ├── language_tools_world.html   # Individual world analysis
+    ├── language_file_selector.html # File browser for editor
+    ├── language_file_editor.html   # Monaco-based file editor
+    ├── view_language_file.html     # File content viewer
+    ├── educational_resources_list.html    # Educational resources main
+    └── educational_resources_world.html   # Resource generation interface
 ```
 
 ## 🔧 Technical Details
@@ -144,9 +188,10 @@ mcedu__toolkit/
 - **Flask 3.0.0**: Web framework
 - **Flask-Login 0.6.3**: User session management
 - **textstat 0.7.1**: Text readability analysis
-- **nltk 3.8.1**: Natural language processing
-- **reportlab 4.0.7**: PDF generation
-- **Werkzeug 3.0.1**: WSGI utilities
+- **nltk 3.8.1**: Natural language processing and tokenization
+- **reportlab 4.0.7**: PDF generation for reports and educational resources
+- **pyspellchecker 0.7.2**: Spell checking functionality with custom dictionary support
+- **Werkzeug 3.0.1**: WSGI utilities and security functions
 
 ### Supported File Types
 - `.mcworld` - Minecraft Education world files
@@ -160,6 +205,16 @@ The language analysis provides multiple readability metrics:
 - **Target Age**: Precise age recommendations (not ranges)
 - **Reading Time**: Estimated reading duration
 - **Text Statistics**: Word count, sentence count, syllable analysis
+- **Educational Content Focus**: Filters out technical Minecraft terms to focus on user-facing educational content
+
+### Spell Checking Features
+The integrated spell checker includes:
+
+- **Custom Dictionary**: Supports Minecraft-specific terminology and educational terms
+- **Visual Error Marking**: Misspelled words are marked with ⚠️ warning symbols
+- **Inline Suggestions**: Spelling suggestions added as comments on error lines
+- **Educational Content Focus**: Only checks user-facing educational text, not technical identifiers
+- **Dictionary Management**: Custom terms can be added to `custom_dictionary.txt`
 
 ## 🔒 Security Features
 

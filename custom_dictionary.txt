@@ -1,0 +1,39 @@
+# Custom Dictionary for MCEdu Toolkit Spell Checker
+# Add custom words (one per line) that should be considered correct
+# This file supports Minecraft Education specific terminology
+
+# Minecraft specific terms
+minecraft
+mcworld
+mctemplate
+bedrock
+redstone
+creeper
+enderman
+villager
+nether
+overworld
+enchanting
+crafting
+
+# Educational terms commonly used in Minecraft Education
+gameplay
+gamification
+procedural
+voxel
+pixelated
+multiplayer
+sandbox
+immersive
+interactive
+collaborative
+
+# Technical terms that might appear in educational content
+ui
+gui
+tooltip
+hotbar
+inventory
+respawn
+teleport
+worldbuilder

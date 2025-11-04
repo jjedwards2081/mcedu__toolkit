@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Select Language File - {{ world.original_filename }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="content-area">
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <!-- Header -->
+                    <div class="card card-minecraft mb-4">
+                        <div class="card-header minecraft-theme">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h3><i class="fas fa-edit"></i> Language File Editor</h3>
+                                    <p class="mb-0">Select a language file to edit in: {{ world.original_filename }}</p>
+                                </div>
+                                <div>
+                                    <a href="{{ url_for('language_tools_world', unpacked_id=world.id) }}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left"></i> Back to Language Tools
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Selection -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5><i class="fas fa-folder-open"></i> Select Language File to Edit</h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="fileSelectionArea">
+                                <div class="text-center py-4">
+                                    <i class="fas fa-spinner fa-spin fa-2x text-primary mb-3"></i>
+                                    <h6>Loading language files...</h6>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Information Card -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5><i class="fas fa-info-circle"></i> About the Language File Editor</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Editor Features:</h6>
+                                    <ul>
+                                        <li><strong>Syntax Highlighting</strong> - Color-coded language file elements</li>
+                                        <li><strong>Line Numbers</strong> - Easy navigation and reference</li>
+                                        <li><strong>Multi-file Tabs</strong> - Work with multiple files simultaneously</li>
+                                        <li><strong>Auto-save Backup</strong> - Automatic backup before saving changes</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Language File Format:</h6>
+                                    <ul>
+                                        <li><strong>Key=Value</strong> format (e.g., <code>item.sword.name=Sword</code>)</li>
+                                        <li><strong>Comments</strong> start with # or //</li>
+                                        <li><strong>Variables</strong> use %variable% format</li>
+                                        <li><strong>Placeholders</strong> use {text} format</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="alert alert-warning mt-3">
+                                <i class="fas fa-exclamation-triangle"></i> <strong>Important:</strong> 
+                                Editing language files will modify the unpacked world. A backup file (.backup) is automatically created when you save changes.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadLanguageFiles();
+});
+
+// Load available language files
+function loadLanguageFiles() {
+    fetch(`/api/get_language_files/{{ world.id }}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayFileSelection(data.language_files);
+            } else {
+                showError(data.error || 'Failed to load language files');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading language files:', error);
+            showError('Network error: ' + error.message);
+        });
+}
+
+// Display file selection interface
+function displayFileSelection(files) {
+    const container = document.getElementById('fileSelectionArea');
+    
+    if (files.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-5">
+                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No language files found</h5>
+                <p class="text-muted">This world doesn't contain any .lang files to edit.</p>
+                <a href="{{ url_for('language_tools_world', unpacked_id=world.id) }}" class="btn btn-primary">
+                    <i class="fas fa-arrow-left"></i> Back to Language Tools
+                </a>
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <div class="alert alert-success">
+            <i class="fas fa-check-circle"></i> Found <strong>${files.length}</strong> language file(s). 
+            Click on a file to open it in the editor.
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>File Name</th>
+                        <th>Language</th>
+                        <th>Path</th>
+                        <th>Size</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+
+    files.forEach(file => {
+        html += `
+            <tr class="file-row" style="cursor: pointer;" onclick="openFileInEditor('${file.relative_path}', '${file.name}')">
+                <td>
+                    <i class="fas fa-file-code text-primary me-2"></i>
+                    <strong>${file.name}</strong>
+                    ${file.is_english ? '<span class="badge bg-success ms-2">English</span>' : ''}
+                </td>
+                <td>
+                    <span class="badge ${file.is_english ? 'bg-success' : 'bg-secondary'}">${file.language_code || 'Unknown'}</span>
+                </td>
+                <td>
+                    <small class="text-muted">${file.relative_path}</small>
+                </td>
+                <td>
+                    <span class="badge bg-light text-dark">${file.size_kb} KB</span>
+                </td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick="openFileInEditor('${file.relative_path}', '${file.name}'); event.stopPropagation();">
+                        <i class="fas fa-edit"></i> Edit File
+                    </button>
+                    <a href="/view_language_file/{{ world.id }}/${encodeURIComponent(file.relative_path)}" 
+                       class="btn btn-outline-info btn-sm ms-1" 
+                       onclick="event.stopPropagation();">
+                        <i class="fas fa-eye"></i> View
+                    </a>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    container.innerHTML = html;
+
+    // Add hover effects to table rows
+    document.querySelectorAll('.file-row').forEach(row => {
+        row.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = '#f8f9fa';
+        });
+        
+        row.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = '';
+        });
+    });
+}
+
+// Open file in editor (new page)
+function openFileInEditor(filePath, fileName) {
+    // Navigate to the editor page with the selected file
+    window.location.href = `/language_file_editor/{{ world.id }}/edit?file_path=${encodeURIComponent(filePath)}`;
+}
+
+// Show error message
+function showError(message) {
+    const container = document.getElementById('fileSelectionArea');
+    container.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i> <strong>Error:</strong> ${message}
+        </div>
+        <div class="text-center py-4">
+            <a href="{{ url_for('language_tools_world', unpacked_id=world.id) }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to Language Tools
+            </a>
+        </div>
+    `;
+}
+</script>
+{% endblock %}

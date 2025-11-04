@@ -659,92 +659,75 @@ def get_unpacked_world_by_id(unpacked_id):
             return world
     return None
 
+def is_educational_content(key, value):
+    """Determine if this key-value pair contains educational content that users see"""
+    key_lower = key.lower()
+    
+    # Include patterns that indicate educational/user-facing content
+    educational_patterns = [
+        # NPC and character dialog
+        r'npc\.|character\.|\.dialog\.|\.dialogue\.',
+        # Educational content and instructions
+        r'lesson\.|tutorial\.|instruction\.|guide\.|help\.',
+        # Story and narrative content
+        r'story\.|narrative\.|text\.|message\.|description\.',
+        # Signs and books content
+        r'sign\.|book\.|page\.|chapter\.',
+        # Chat and conversation
+        r'chat\.|conversation\.|speak\.|say\.',
+        # Educational activities
+        r'activity\.|exercise\.|task\.|quest\.|mission\.',
+        # Custom content entries (often educational)
+        r'custom\.|edu\.|learn\.|teach\.',
+        # World-specific content
+        r'world\.|level\.|stage\.',
+        # Minecraft Education specific patterns
+        r'\.name\.',  # Names/titles for educational elements
+        r'\.title\.',  # Titles
+        r'convo\.',   # Conversations
+        r'dialogue\.',  # Dialogue
+        # Common educational prefixes in MC:EE
+        r'agent\.',   # Agent activities
+        r'board\.',   # Chalkboard/whiteboard content
+        r'slate\.',   # Slate content
+        r'poster\.'   # Poster content
+    ]
+    
+    # Check if key matches educational patterns
+    for pattern in educational_patterns:
+        if re.search(pattern, key_lower):
+            return True
+    
+    # Additional checks for value content
+    if len(value.strip()) < 3:  # Skip very short values
+        return False
+    
+    # Check if value looks like readable text
+    value_lower = value.lower()
+    
+    # Skip technical values
+    if any(tech in value_lower for tech in ['minecraft:', 'textures/', 'sounds/', 'models/', 'blockbench', '{', '}', '[', ']']):
+        return False
+    
+    # Skip pure numbers or codes
+    if value.strip().replace('.', '').replace(',', '').replace(' ', '').isdigit():
+        return False
+    
+    # Skip single words unless they appear to be educational
+    words = value.split()
+    if len(words) == 1:
+        educational_words = ['lesson', 'tutorial', 'help', 'guide', 'story', 'welcome', 'instruction', 'activity']
+        if not any(edu_word in value_lower for edu_word in educational_words):
+            return False
+    
+    # Check for sentence-like structure (contains common words, punctuation, or is longer)
+    sentence_indicators = ['.', '!', '?', ',', 'the ', 'a ', 'an ', 'and ', 'or ', 'but ', 'with ', 'to ', 'for ', 'of ', 'in ', 'on ', 'at ']
+    has_sentence_structure = any(indicator in value_lower for indicator in sentence_indicators) or len(words) >= 4
+    
+    return has_sentence_structure
+
 def extract_text_from_lang_file(file_path):
     """Extract educational content from a .lang file, filtering out technical and system content"""
-    
-    def is_educational_content(key, value):
-        """Determine if this key-value pair contains educational content that users see"""
-        key_lower = key.lower()
-        
-        # Include patterns that indicate educational/user-facing content
-        educational_patterns = [
-            # NPC and character dialog
-            r'npc\.|character\.|\.dialog\.|\.dialogue\.',
-            # Educational content and instructions
-            r'lesson\.|tutorial\.|instruction\.|guide\.|help\.',
-            # Story and narrative content
-            r'story\.|narrative\.|text\.|message\.|description\.',
-            # Signs and books content
-            r'sign\.|book\.|page\.|chapter\.',
-            # Chat and conversation
-            r'chat\.|conversation\.|speak\.|say\.',
-            # Educational activities
-            r'activity\.|exercise\.|task\.|quest\.|mission\.',
-            # Custom content entries (often educational)
-            r'custom\.|edu\.|learn\.|teach\.',
-            # World-specific content
-            r'world\.|level\.|stage\.',
-            # Minecraft Education specific patterns
-            r'\.name\.',  # Names/titles for educational elements
-            r'\.title\.',  # Titles
-            r'convo\.',   # Conversations
-            r'\.talk\.',  # Talking/speech
-            r'\.speak\.',  # Speaking content
-        ]
-        
-        # Exclude patterns that indicate technical/system content
-        exclude_patterns = [
-            # Technical system messages
-            r'system\.|error\.|debug\.|log\.',
-            # UI elements and menus (but not educational UI)
-            r'menu\.|button\.|gui\.|ui\.|hud\.',
-            # Commands and technical instructions
-            r'command\.|cmd\.|execute\.|function\.',
-            # Server and multiplayer technical
-            r'server\.|client\.|network\.|connection\.',
-            # File and technical references
-            r'file\.|path\.|config\.|setting\.',
-            # Version and technical info
-            r'version\.|build\.|dev\.|api\.',
-            # Achievement and advancement system messages (unless educational)
-            r'achievement\.|advancement\.|progress\.',
-            # Coordinate and technical data
-            r'coord\.|pos\.|location\.|dimension\.',
-            # Pack metadata (not educational content)
-            r'^pack\.',
-            # Technical items that aren't educational
-            r'^item\..*\.name$'  # Basic item names unless they're educational
-        ]
-        
-        # Check if key matches educational patterns
-        is_educational = any(re.search(pattern, key_lower) for pattern in educational_patterns)
-        
-        # Check if key matches exclude patterns
-        is_excluded = any(re.search(pattern, key_lower) for pattern in exclude_patterns)
-        
-        # Additional content-based filtering
-        if not is_educational and not is_excluded:
-            # Include if it looks like narrative content (sentences, questions, instructions)
-            if (len(value) > 15 and 
-                (value.count('.') > 0 or value.count('?') > 0 or value.count('!') > 0 or 
-                 len(value.split()) >= 4) and  # Multi-word content is likely educational
-                not re.search(r'^[A-Z_][A-Z0-9_]*$', value)):  # Not all caps constants
-                is_educational = True
-            
-            # Include educational titles and names (even if short)
-            elif (len(value) >= 8 and len(value.split()) >= 2 and
-                  not re.search(r'^[A-Z_][A-Z0-9_]*$', value) and  # Not constants
-                  not value.isdigit()):  # Not just numbers
-                is_educational = True
-            
-            # Exclude if it looks like technical identifiers or very short labels
-            elif (len(value) < 8 or 
-                  re.search(r'^[A-Z_][A-Z0-9_]*$', value) or  # All caps constants
-                  re.search(r'^\d+[a-z]*$', value) or         # Numbers with units
-                  (re.search(r'^[a-z_]+$', value) and len(value.split()) == 1)):  # Single lowercase words
-                is_excluded = True
-        
-        return is_educational and not is_excluded
     
     def clean_educational_text(text):
         """Clean text while preserving educational content structure"""
@@ -1328,6 +1311,508 @@ def get_custom_dictionary_words():
         print(f"Error getting dictionary words: {e}")
         return []
 
+def analyze_world_content(unpacked_folder_name):
+    """Analyze world content to extract educational themes and information"""
+    try:
+        world_data = {}
+        
+        # Find and analyze language files
+        lang_files = find_language_files(unpacked_folder_name)
+        if lang_files:
+            # Get the largest English file for analysis
+            english_files = [f for f in lang_files if f['is_english']]
+            if english_files:
+                largest_file = max(english_files, key=lambda x: x['size_bytes'])
+                educational_text = extract_text_from_lang_file(largest_file['full_path'])
+                
+                if educational_text:
+                    world_data['educational_content'] = educational_text
+                    world_data['primary_language_file'] = largest_file['name']
+                    
+                    # Extract themes and topics from content
+                    world_data['themes'] = extract_educational_themes(educational_text)
+                    world_data['key_concepts'] = extract_key_concepts(educational_text)
+                    world_data['learning_objectives'] = generate_learning_objectives(educational_text)
+        
+        # Analyze world structure and files
+        unpacked_path = os.path.join(app.config['UNPACKED_FOLDER'], unpacked_folder_name)
+        world_data['world_info'] = analyze_world_structure(unpacked_path)
+        
+        return world_data
+        
+    except Exception as e:
+        print(f"Error analyzing world content: {e}")
+        return {}
+
+def extract_educational_themes(text):
+    """Extract main educational themes from text content"""
+    themes = []
+    
+    # Define theme keywords and their associated themes
+    theme_keywords = {
+        'sustainability': ['sustainability', 'environment', 'green', 'renewable', 'conservation', 'recycle', 'eco'],
+        'science': ['experiment', 'hypothesis', 'research', 'laboratory', 'scientific', 'discovery', 'analysis'],
+        'history': ['historical', 'ancient', 'civilization', 'culture', 'heritage', 'timeline', 'era'],
+        'geography': ['geography', 'climate', 'terrain', 'landscape', 'region', 'continent', 'natural'],
+        'mathematics': ['mathematics', 'calculation', 'equation', 'geometry', 'measurement', 'statistics'],
+        'technology': ['technology', 'innovation', 'engineering', 'digital', 'computer', 'automation'],
+        'biology': ['biology', 'ecosystem', 'organism', 'species', 'habitat', 'biodiversity', 'life'],
+        'chemistry': ['chemistry', 'chemical', 'reaction', 'compound', 'element', 'molecular'],
+        'physics': ['physics', 'energy', 'force', 'motion', 'gravity', 'electricity', 'magnetism'],
+        'social_studies': ['community', 'society', 'citizenship', 'government', 'democracy', 'rights'],
+        'economics': ['economics', 'trade', 'business', 'market', 'economy', 'resource', 'production'],
+        'art': ['art', 'creative', 'design', 'aesthetic', 'artistic', 'visual', 'cultural']
+    }
+    
+    text_lower = text.lower()
+    for theme, keywords in theme_keywords.items():
+        if any(keyword in text_lower for keyword in keywords):
+            themes.append(theme.replace('_', ' ').title())
+    
+    return themes[:5]  # Return top 5 themes
+
+def extract_key_concepts(text):
+    """Extract key concepts and vocabulary from educational text"""
+    # Simple approach - extract longer phrases and important terms
+    words = text.split()
+    concepts = []
+    
+    # Look for capitalized terms (proper nouns, important concepts)
+    for word in words:
+        if len(word) > 3 and word[0].isupper() and word not in ['The', 'This', 'That', 'And', 'But', 'Or']:
+            if word not in concepts:
+                concepts.append(word)
+    
+    # Look for phrases that might be key concepts
+    sentences = text.split('.')
+    for sentence in sentences:
+        if len(sentence.strip()) > 20 and len(sentence.strip()) < 100:
+            # Extract noun phrases (simplified)
+            words_in_sentence = sentence.strip().split()
+            if len(words_in_sentence) > 2 and len(words_in_sentence) < 8:
+                concept = sentence.strip()
+                if concept not in concepts:
+                    concepts.append(concept)
+    
+    return concepts[:10]  # Return top 10 key concepts
+
+def generate_learning_objectives(text):
+    """Generate learning objectives based on content analysis"""
+    themes = extract_educational_themes(text)
+    objectives = []
+    
+    # Base objectives templates for different themes
+    objective_templates = {
+        'Sustainability': [
+            'Students will understand the importance of environmental conservation',
+            'Students will identify renewable and non-renewable resources',
+            'Students will analyze the impact of human activities on the environment'
+        ],
+        'Science': [
+            'Students will apply the scientific method to investigate phenomena',
+            'Students will analyze data and draw evidence-based conclusions',
+            'Students will understand key scientific principles and concepts'
+        ],
+        'History': [
+            'Students will analyze historical events and their significance',
+            'Students will understand cause and effect relationships in history',
+            'Students will compare different historical periods and cultures'
+        ],
+        'Geography': [
+            'Students will identify and analyze geographic features and patterns',
+            'Students will understand the relationship between humans and their environment',
+            'Students will use geographic tools and technologies effectively'
+        ]
+    }
+    
+    # Generate objectives based on detected themes
+    for theme in themes:
+        if theme in objective_templates:
+            objectives.extend(objective_templates[theme])
+    
+    # Add general objectives if no specific themes detected
+    if not objectives:
+        objectives = [
+            'Students will engage with interactive educational content',
+            'Students will develop problem-solving and critical thinking skills',
+            'Students will collaborate effectively in a digital learning environment'
+        ]
+    
+    return objectives[:6]  # Return up to 6 objectives
+
+def analyze_world_structure(world_path):
+    """Analyze world folder structure for additional educational context"""
+    world_info = {
+        'has_behavior_packs': False,
+        'has_resource_packs': False,
+        'has_structures': False,
+        'estimated_age_range': 'Middle School (Ages 11-14)',
+        'complexity_level': 'Intermediate'
+    }
+    
+    try:
+        if os.path.exists(os.path.join(world_path, 'behavior_packs')):
+            world_info['has_behavior_packs'] = True
+        if os.path.exists(os.path.join(world_path, 'resource_packs')):
+            world_info['has_resource_packs'] = True
+        if os.path.exists(os.path.join(world_path, 'structures')):
+            world_info['has_structures'] = True
+            
+        # Determine complexity based on features
+        complexity_score = 0
+        if world_info['has_behavior_packs']:
+            complexity_score += 2
+        if world_info['has_resource_packs']:
+            complexity_score += 1
+        if world_info['has_structures']:
+            complexity_score += 1
+            
+        if complexity_score >= 3:
+            world_info['complexity_level'] = 'Advanced'
+            world_info['estimated_age_range'] = 'High School (Ages 14-18)'
+        elif complexity_score >= 1:
+            world_info['complexity_level'] = 'Intermediate'
+            world_info['estimated_age_range'] = 'Middle School (Ages 11-14)'
+        else:
+            world_info['complexity_level'] = 'Beginner'
+            world_info['estimated_age_range'] = 'Elementary (Ages 8-11)'
+            
+    except Exception as e:
+        print(f"Error analyzing world structure: {e}")
+    
+    return world_info
+
+def generate_educational_resource(unpacked_folder_name, resource_type):
+    """Generate a specific type of educational resource"""
+    try:
+        # Analyze world content first
+        world_data = analyze_world_content(unpacked_folder_name)
+        
+        if not world_data:
+            return None
+            
+        # Generate resource based on type
+        if resource_type == 'lesson_plan':
+            return generate_lesson_plan(world_data)
+        elif resource_type == 'student_quiz':
+            return generate_student_quiz(world_data)
+        elif resource_type == 'topic_introduction':
+            return generate_topic_introduction(world_data)
+        elif resource_type == 'parent_letter':
+            return generate_parent_letter(world_data)
+        else:
+            return None
+            
+    except Exception as e:
+        print(f"Error generating educational resource: {e}")
+        return None
+
+def generate_lesson_plan(world_data):
+    """Generate a comprehensive lesson plan"""
+    themes = world_data.get('themes', ['Interactive Learning'])
+    objectives = world_data.get('learning_objectives', [])
+    world_info = world_data.get('world_info', {})
+    
+    lesson_plan = {
+        'title': f"Minecraft Education Lesson: {themes[0] if themes else 'Interactive Learning'}",
+        'grade_level': world_info.get('estimated_age_range', 'Middle School (Ages 11-14)'),
+        'duration': '45-60 minutes',
+        'subject_areas': themes,
+        'learning_objectives': objectives,
+        'materials_needed': [
+            'Minecraft Education Edition',
+            'Student devices (tablets/computers)',
+            'World file: ' + world_data.get('primary_language_file', 'Educational World'),
+            'Student worksheets (optional)',
+            'Projector/Smart Board for demonstrations'
+        ],
+        'lesson_structure': {
+            'introduction': {
+                'time': '10 minutes',
+                'activities': [
+                    'Welcome students and introduce the lesson topic',
+                    'Review learning objectives and expectations',
+                    'Demonstrate basic Minecraft Education controls if needed',
+                    'Explain the virtual world they will be exploring'
+                ]
+            },
+            'main_activity': {
+                'time': '25-35 minutes',
+                'activities': [
+                    'Students load the educational world',
+                    'Guide students through key learning areas',
+                    'Encourage exploration and interaction with educational content',
+                    'Facilitate collaborative problem-solving activities',
+                    'Monitor student progress and provide assistance as needed'
+                ]
+            },
+            'conclusion': {
+                'time': '10-15 minutes',
+                'activities': [
+                    'Students share discoveries and insights',
+                    'Review key concepts learned during the session',
+                    'Connect virtual learning to real-world applications',
+                    'Assign follow-up activities or homework if applicable'
+                ]
+            }
+        },
+        'assessment_strategies': [
+            'Observe student engagement and participation',
+            'Review student responses to in-world activities',
+            'Conduct exit ticket or quick quiz on key concepts',
+            'Evaluate collaborative skills and teamwork'
+        ],
+        'extension_activities': [
+            'Research project on lesson themes',
+            'Create presentation about discoveries made in the world',
+            'Design own Minecraft structures related to the topic',
+            'Write reflection journal about the learning experience'
+        ],
+        'differentiation': [
+            'Pair struggling students with more experienced players',
+            'Provide additional time for students who need it',
+            'Offer advanced challenges for quick finishers',
+            'Use visual and auditory cues for different learning styles'
+        ]
+    }
+    
+    return lesson_plan
+
+def generate_student_quiz(world_data):
+    """Generate a student quiz based on world content"""
+    themes = world_data.get('themes', ['Interactive Learning'])
+    key_concepts = world_data.get('key_concepts', [])
+    educational_content = world_data.get('educational_content', '')
+    
+    quiz = {
+        'title': f"Quiz: {themes[0] if themes else 'Interactive Learning'} in Minecraft",
+        'instructions': 'Answer the following questions based on your exploration of the Minecraft Education world.',
+        'questions': []
+    }
+    
+    # Generate different types of questions
+    questions = []
+    
+    # Multiple choice questions based on themes
+    if 'Sustainability' in themes:
+        questions.extend([
+            {
+                'type': 'multiple_choice',
+                'question': 'What is the most important benefit of renewable energy sources?',
+                'options': [
+                    'They are cheaper to build',
+                    'They do not run out over time',
+                    'They are easier to transport',
+                    'They work in all weather conditions'
+                ],
+                'correct_answer': 1,
+                'explanation': 'Renewable energy sources like solar and wind do not run out over time, unlike fossil fuels.'
+            },
+            {
+                'type': 'multiple_choice',
+                'question': 'Which of these activities helps reduce waste?',
+                'options': [
+                    'Buying more products',
+                    'Recycling materials',
+                    'Using disposable items',
+                    'Throwing everything away'
+                ],
+                'correct_answer': 1,
+                'explanation': 'Recycling materials helps reduce waste by giving materials a second life.'
+            }
+        ])
+    
+    if 'Science' in themes:
+        questions.extend([
+            {
+                'type': 'multiple_choice',
+                'question': 'What is the first step in the scientific method?',
+                'options': [
+                    'Conduct an experiment',
+                    'Make an observation',
+                    'Form a conclusion',
+                    'Analyze data'
+                ],
+                'correct_answer': 1,
+                'explanation': 'The scientific method begins with making an observation about the world around us.'
+            }
+        ])
+    
+    # True/False questions
+    questions.extend([
+        {
+            'type': 'true_false',
+            'question': 'Minecraft Education Edition can be used to learn about real-world concepts.',
+            'correct_answer': True,
+            'explanation': 'Minecraft Education Edition is specifically designed to teach real-world concepts through virtual exploration.'
+        },
+        {
+            'type': 'true_false',
+            'question': 'Working together in Minecraft Education is discouraged.',
+            'correct_answer': False,
+            'explanation': 'Collaboration and teamwork are encouraged in Minecraft Education to enhance learning.'
+        }
+    ])
+    
+    # Short answer questions based on content
+    if key_concepts:
+        questions.append({
+            'type': 'short_answer',
+            'question': f'Explain what you learned about {key_concepts[0] if key_concepts else "the main topic"} in the Minecraft world.',
+            'sample_answer': f'Students should demonstrate understanding of {key_concepts[0] if key_concepts else "the main topic"} through specific examples from their virtual exploration.',
+            'points': 5
+        })
+    
+    questions.append({
+        'type': 'short_answer',
+        'question': 'Describe one way the concepts you learned in Minecraft could be applied in the real world.',
+        'sample_answer': 'Students should connect virtual learning to real-world applications, showing critical thinking skills.',
+        'points': 5
+    })
+    
+    # Essay question
+    questions.append({
+        'type': 'essay',
+        'question': f'Write a paragraph explaining how your experience in the Minecraft Education world helped you understand {themes[0] if themes else "the subject matter"} better. Include specific examples from your exploration.',
+        'rubric': {
+            'content': 'Demonstrates clear understanding of subject matter (4 points)',
+            'examples': 'Uses specific examples from Minecraft experience (3 points)',
+            'writing': 'Clear, organized writing with proper grammar (3 points)'
+        },
+        'total_points': 10
+    })
+    
+    quiz['questions'] = questions[:8]  # Limit to 8 questions for reasonable length
+    quiz['total_points'] = sum(q.get('points', 1) for q in quiz['questions'])
+    
+    return quiz
+
+def generate_topic_introduction(world_data):
+    """Generate an introduction to the topic/theme"""
+    themes = world_data.get('themes', ['Interactive Learning'])
+    world_info = world_data.get('world_info', {})
+    key_concepts = world_data.get('key_concepts', [])
+    
+    primary_theme = themes[0] if themes else 'Interactive Learning'
+    
+    introduction = {
+        'title': f'Introduction to {primary_theme}',
+        'overview': f'Welcome to an exciting journey into {primary_theme.lower()}! Through this interactive Minecraft Education experience, you will explore, discover, and learn about important concepts in a virtual world designed specifically for education.',
+        'what_you_will_learn': [
+            f'Key principles and concepts related to {primary_theme.lower()}',
+            'Real-world applications and examples',
+            'Problem-solving skills through hands-on activities',
+            'Collaboration and teamwork in a digital environment'
+        ],
+        'why_this_matters': f'{primary_theme} is an important subject that affects our daily lives and future. By understanding these concepts, you will be better prepared to make informed decisions and contribute positively to society.',
+        'key_vocabulary': key_concepts[:8] if key_concepts else [
+            'Interactive Learning', 'Virtual Environment', 'Educational Content', 'Collaboration'
+        ],
+        'getting_started': [
+            'Launch Minecraft Education Edition on your device',
+            'Join the educational world with your classmates',
+            'Follow the guided tour to familiarize yourself with the environment',
+            'Pay attention to signs, NPCs, and interactive elements',
+            'Work together with your peers to complete activities',
+            'Ask questions and explore beyond the basic requirements'
+        ],
+        'learning_tips': [
+            'Take your time to read all informational content',
+            'Experiment with different approaches to problems',
+            'Discuss your findings with classmates',
+            'Connect what you see in Minecraft to the real world',
+            'Keep notes of important discoveries',
+            'Don\'t be afraid to explore and try new things'
+        ],
+        'success_indicators': [
+            'You can explain key concepts in your own words',
+            'You can provide real-world examples of the concepts',
+            'You actively participate in group activities',
+            'You ask thoughtful questions about the subject matter',
+            'You make connections between virtual and real experiences'
+        ]
+    }
+    
+    return introduction
+
+def generate_parent_letter(world_data):
+    """Generate a letter for parents introducing the educational game"""
+    themes = world_data.get('themes', ['Interactive Learning'])
+    world_info = world_data.get('world_info', {})
+    primary_theme = themes[0] if themes else 'Interactive Learning'
+    
+    letter = {
+        'subject': f'Your Child Will Be Learning About {primary_theme} Through Minecraft Education',
+        'greeting': 'Dear Parents and Guardians,',
+        'introduction': f'I am excited to share with you an innovative learning opportunity that your child will be participating in. We will be using Minecraft Education Edition to explore and learn about {primary_theme.lower()} in an engaging, interactive virtual environment.',
+        'about_minecraft_education': {
+            'title': 'What is Minecraft Education Edition?',
+            'content': 'Minecraft Education Edition is a game-based learning platform that promotes creativity, collaboration, and problem-solving in an immersive digital environment. It is specifically designed for educational use and is used by millions of students worldwide to learn subjects ranging from history and science to mathematics and language arts.'
+        },
+        'learning_benefits': {
+            'title': f'How Will This Help Your Child Learn About {primary_theme}?',
+            'benefits': [
+                'Engages students through interactive, hands-on exploration',
+                'Promotes collaboration and teamwork skills',
+                'Develops problem-solving and critical thinking abilities',
+                'Makes abstract concepts tangible and understandable',
+                'Accommodates different learning styles and paces',
+                'Connects virtual learning to real-world applications'
+            ]
+        },
+        'what_to_expect': {
+            'title': 'What Your Child Will Be Doing',
+            'activities': [
+                f'Exploring a specially designed virtual world focused on {primary_theme.lower()}',
+                'Participating in guided activities and challenges',
+                'Collaborating with classmates to solve problems',
+                'Interacting with educational content and characters',
+                'Completing assignments that reinforce learning objectives',
+                'Presenting findings and sharing discoveries with the class'
+            ]
+        },
+        'safety_and_monitoring': {
+            'title': 'Safety and Supervision',
+            'content': 'Minecraft Education Edition provides a safe, controlled environment for learning. Students can only interact with their classmates, and all activities are supervised by the teacher. The platform includes built-in tools for classroom management and student monitoring.'
+        },
+        'support_at_home': {
+            'title': 'How You Can Support Learning at Home',
+            'suggestions': [
+                f'Ask your child about what they learned regarding {primary_theme.lower()}',
+                'Encourage them to share their discoveries and experiences',
+                f'Look for real-world examples of {primary_theme.lower()} concepts together',
+                'Support any homework or extension activities assigned',
+                'Show interest in their virtual creations and achievements',
+                'Discuss how the lesson connects to current events or daily life'
+            ]
+        },
+        'addressing_concerns': {
+            'title': 'Common Questions and Concerns',
+            'qa': [
+                {
+                    'question': 'Is this just playing games instead of learning?',
+                    'answer': 'No, this is purposeful, curriculum-aligned learning that happens to use a game-based platform. Studies show that game-based learning can improve engagement and retention of educational content.'
+                },
+                {
+                    'question': 'Will my child become too focused on gaming?',
+                    'answer': 'Minecraft Education Edition is different from recreational gaming. It is used as a learning tool with specific educational objectives and time limits.'
+                },
+                {
+                    'question': 'What if my child is not familiar with Minecraft?',
+                    'answer': 'No prior experience is necessary. We will provide instruction on the basic controls and navigation. Many students actually learn these skills quickly.'
+                }
+            ]
+        },
+        'contact_information': {
+            'title': 'Questions or Concerns?',
+            'content': 'If you have any questions about this learning activity or would like to discuss your child\'s progress, please don\'t hesitate to reach out to me. I am committed to ensuring that every student has a positive and educational experience.'
+        },
+        'closing': 'I look forward to sharing your child\'s learning journey and discoveries with you. Thank you for your continued support of innovative educational approaches.',
+        'signature': 'Sincerely,\n[Teacher Name]\n[Subject/Grade Level]\n[School Name]\n[Contact Information]'
+    }
+    
+    return letter
+
 @login_manager.user_loader
 def load_user(user_id):
     for user in users.values():
@@ -1795,6 +2280,306 @@ def get_custom_dictionary():
         })
     except Exception as e:
         return jsonify({'error': f'Error getting custom dictionary: {str(e)}'}), 500
+
+@app.route('/educational_resources')
+@login_required
+def educational_resources():
+    """Educational resources main page - shows list of unpacked worlds"""
+    unpacked_worlds = load_unpacked_metadata()
+    unpacked_worlds.sort(key=lambda x: x['unpacked_date'], reverse=True)
+    return render_template('educational_resources_list.html', user=current_user, unpacked_worlds=unpacked_worlds)
+
+@app.route('/educational_resources/<int:unpacked_id>')
+@login_required
+def educational_resources_world(unpacked_id):
+    """Educational resources page for a specific unpacked world"""
+    world = get_unpacked_world_by_id(unpacked_id)
+    if not world:
+        flash('Unpacked world not found', 'error')
+        return redirect(url_for('educational_resources'))
+    
+    return render_template('educational_resources_world.html', user=current_user, world=world)
+
+@app.route('/generate_resource/<int:unpacked_id>/<resource_type>')
+@login_required
+def generate_resource(unpacked_id, resource_type):
+    """Generate a specific educational resource"""
+    world = get_unpacked_world_by_id(unpacked_id)
+    if not world:
+        return jsonify({'error': 'Unpacked world not found'}), 404
+
+    try:
+        # Generate the requested resource
+        resource_data = generate_educational_resource(world['folder_name'], resource_type)
+        
+        if not resource_data:
+            return jsonify({'error': f'Could not generate {resource_type}'}), 400
+        
+        return jsonify({
+            'success': True,
+            'resource_type': resource_type,
+            'data': resource_data
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error generating {resource_type}: {str(e)}'}), 500
+
+@app.route('/language_file_editor/<int:unpacked_id>')
+@login_required
+def language_file_editor(unpacked_id):
+    """Language file editor file selection page"""
+    world = get_unpacked_world_by_id(unpacked_id)
+    if not world:
+        flash('Unpacked world not found', 'error')
+        return redirect(url_for('language_tools'))
+    
+    return render_template('language_file_selector.html', user=current_user, world=world)
+
+@app.route('/language_file_editor/<int:unpacked_id>/edit')
+@login_required
+def edit_language_file(unpacked_id):
+    """Language file editor for editing a specific file"""
+    world = get_unpacked_world_by_id(unpacked_id)
+    if not world:
+        flash('Unpacked world not found', 'error')
+        return redirect(url_for('language_tools'))
+    
+    file_path = request.args.get('file_path')
+    if not file_path:
+        flash('No file specified', 'error')
+        return redirect(url_for('language_file_editor', unpacked_id=unpacked_id))
+    
+    return render_template('language_file_editor.html', user=current_user, world=world, file_path=file_path)
+
+@app.route('/api/get_language_files/<int:unpacked_id>')
+@login_required
+def api_get_language_files(unpacked_id):
+    """API endpoint to get language files for editor"""
+    world = get_unpacked_world_by_id(unpacked_id)
+    if not world:
+        return jsonify({'error': 'Unpacked world not found'}), 404
+    
+    try:
+        # Find language files
+        lang_files = find_language_files(world['folder_name'])
+        
+        return jsonify({
+            'success': True,
+            'language_files': lang_files
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error finding language files: {str(e)}'}), 500
+
+@app.route('/api/get_file_content/<int:unpacked_id>')
+@login_required
+def api_get_file_content(unpacked_id):
+    """API endpoint to get content of a specific language file"""
+    world = get_unpacked_world_by_id(unpacked_id)
+    if not world:
+        return jsonify({'error': 'Unpacked world not found'}), 404
+    
+    file_path = request.args.get('file_path')
+    if not file_path:
+        return jsonify({'error': 'File path is required'}), 400
+    
+    try:
+        # Construct full path to the file
+        unpacked_folder = os.path.join(app.config['UNPACKED_FOLDER'], world['folder_name'])
+        full_file_path = os.path.join(unpacked_folder, file_path)
+        
+        # Security check - ensure file is within the unpacked folder
+        if not os.path.abspath(full_file_path).startswith(os.path.abspath(unpacked_folder)):
+            return jsonify({'error': 'Invalid file path'}), 400
+        
+        # Check if file exists
+        if not os.path.exists(full_file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Read file content
+        try:
+            with open(full_file_path, 'r', encoding='utf-8') as file:
+                content = file.read()
+        except UnicodeDecodeError:
+            # Try with different encoding if UTF-8 fails
+            with open(full_file_path, 'r', encoding='latin-1') as file:
+                content = file.read()
+        
+        return jsonify({
+            'success': True,
+            'content': content,
+            'file_path': file_path,
+            'file_name': os.path.basename(file_path)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error reading file: {str(e)}'}), 500
+
+@app.route('/api/save_file_content/<int:unpacked_id>', methods=['POST'])
+@login_required
+def api_save_file_content(unpacked_id):
+    """API endpoint to save content to a language file"""
+    world = get_unpacked_world_by_id(unpacked_id)
+    if not world:
+        return jsonify({'error': 'Unpacked world not found'}), 404
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    file_path = data.get('file_path')
+    content = data.get('content')
+    
+    if not file_path or content is None:
+        return jsonify({'error': 'File path and content are required'}), 400
+    
+    try:
+        # Construct full path to the file
+        unpacked_folder = os.path.join(app.config['UNPACKED_FOLDER'], world['folder_name'])
+        full_file_path = os.path.join(unpacked_folder, file_path)
+        
+        # Security check - ensure file is within the unpacked folder
+        if not os.path.abspath(full_file_path).startswith(os.path.abspath(unpacked_folder)):
+            return jsonify({'error': 'Invalid file path'}), 400
+        
+        # Create backup of original file
+        backup_path = full_file_path + '.backup'
+        if os.path.exists(full_file_path):
+            shutil.copy2(full_file_path, backup_path)
+        
+        # Write new content
+        with open(full_file_path, 'w', encoding='utf-8') as file:
+            file.write(content)
+        
+        return jsonify({
+            'success': True,
+            'message': 'File saved successfully',
+            'backup_created': os.path.exists(backup_path)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error saving file: {str(e)}'}), 500
+
+@app.route('/api/spell_check_content', methods=['POST'])
+@login_required
+def api_spell_check_content():
+    """API endpoint to spell check text content"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'No data provided'}), 400
+    
+    content = data.get('content')
+    if not content:
+        return jsonify({'error': 'Content is required'}), 400
+    
+    try:
+        # Ensure NLTK data is available
+        try:
+            import nltk
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            try:
+                nltk.download('punkt', quiet=True)
+            except:
+                try:
+                    nltk.download('punkt_tab', quiet=True)
+                except:
+                    pass
+        
+        # Initialize spell checker with custom dictionary
+        spell = SpellChecker()
+        
+        # Load custom dictionary if it exists
+        custom_dict_path = 'custom_dictionary.txt'
+        if os.path.exists(custom_dict_path):
+            with open(custom_dict_path, 'r', encoding='utf-8') as f:
+                custom_words = [word.strip().lower() for word in f.readlines() if word.strip()]
+                spell.word_frequency.load_words(custom_words)
+        
+        # Extract text from language file format (only values after =)
+        educational_text = ""
+        lines = content.split('\n')
+        
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line or line.startswith('#') or line.startswith('//'):
+                continue
+            
+            if '=' in line:
+                # Extract key and value parts
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                
+                # Filter for educational content
+                if is_educational_content(key, value):
+                    educational_text += f"LINE_{line_num}: {value}\n"
+        
+        if not educational_text:
+            return jsonify({
+                'success': True,
+                'errors': [],
+                'total_words': 0,
+                'misspelled_words': 0
+            })
+        
+        # Check spelling
+        words = nltk.word_tokenize(educational_text.lower())
+        if words is None:
+            words = []
+        # Filter out non-alphabetic words and punctuation
+        words = [word for word in words if word.isalpha() and len(word) > 1]
+        
+        # Find misspelled words
+        misspelled = spell.unknown(words)
+        if misspelled is None:
+            misspelled = set()
+        
+        # Get line-specific errors
+        errors_by_line = {}
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line or line.startswith('#') or line.startswith('//'):
+                continue
+                
+            if '=' in line:
+                key, value = line.split('=', 1)
+                key = key.strip()
+                value = value.strip()
+                if is_educational_content(key, value):
+                    line_words = nltk.word_tokenize(value.lower())
+                    if line_words is None:
+                        line_words = []
+                    line_words = [word for word in line_words if word.isalpha() and len(word) > 1]
+                    line_misspelled = [word for word in line_words if word in misspelled]
+                    
+                    if line_misspelled:
+                        suggestions = {}
+                        for word in line_misspelled:
+                            candidates = spell.candidates(word)
+                            if candidates:
+                                suggestions[word] = list(candidates)[:3]
+                            else:
+                                suggestions[word] = []
+                        
+                        errors_by_line[line_num] = {
+                            'line_number': line_num,
+                            'line_text': line,
+                            'misspelled_words': line_misspelled,
+                            'suggestions': suggestions
+                        }
+        
+        return jsonify({
+            'success': True,
+            'errors': list(errors_by_line.values()),
+            'total_words': len(words),
+            'misspelled_words': len(misspelled),
+            'accuracy_percentage': round(((len(words) - len(misspelled)) / len(words)) * 100, 1) if words else 100
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'Error checking spelling: {str(e)}'}), 500
+
 
 @app.route('/view_language_file/<int:unpacked_id>/<path:file_path>')
 @login_required

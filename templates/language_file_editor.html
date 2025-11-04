@@ -1,0 +1,903 @@
+{% extends "base.html" %}
+
+{% block title %}Language File Editor - {{ world.original_filename }}{% endblock %}
+
+{% block head %}
+<!-- Monaco Editor CSS -->
+<style>
+    .editor-container {
+        height: 520px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    #editorContainer {
+        height: 520px !important;
+        width: 100% !important;
+    }
+    
+    .monaco-editor, .monaco-editor .overflow-guard {
+        height: 520px !important;
+    }
+    
+    .file-tabs {
+        border-bottom: 1px solid #dee2e6;
+        background-color: #f8f9fa;
+    }
+    
+    .file-tabs .nav-link {
+        border: none;
+        border-radius: 0;
+        color: #495057;
+    }
+    
+    .file-tabs .nav-link.active {
+        background-color: #fff;
+        border-bottom: 3px solid #007bff;
+        color: #007bff;
+    }
+    
+    .file-tabs .nav-link:hover {
+        background-color: #e9ecef;
+    }
+    
+    .editor-toolbar {
+        padding: 10px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .file-info {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    
+    .save-indicator {
+        display: none;
+        color: #28a745;
+        font-size: 0.875rem;
+    }
+    
+    .save-indicator.show {
+        display: inline-flex;
+        align-items: center;
+    }
+    
+    .unsaved-changes {
+        color: #ffc107;
+        font-size: 0.875rem;
+    }
+    
+    .loading-editor {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        background-color: #f8f9fa;
+    }
+    
+    /* Spelling error highlighting */
+    .spelling-error {
+        background-color: rgba(255, 107, 107, 0.3) !important;
+        border-bottom: 2px wavy #ff6b6b !important;
+        position: relative;
+    }
+    
+    .spelling-error-inline {
+        background-color: rgba(255, 107, 107, 0.4) !important;
+        border-bottom: 2px wavy #ff6b6b !important;
+        text-decoration: underline wavy #ff6b6b !important;
+    }
+    
+    .spelling-error-line {
+        background-color: rgba(255, 107, 107, 0.1) !important;
+    }
+    
+    /* Make sure dark theme shows spelling errors clearly */
+    .monaco-editor.vs-dark .spelling-error {
+        background-color: rgba(255, 107, 107, 0.2) !important;
+        border-bottom: 2px wavy #ff9999 !important;
+    }
+    
+    .monaco-editor.vs-dark .spelling-error-inline {
+        background-color: rgba(255, 107, 107, 0.3) !important;
+        border-bottom: 2px wavy #ff9999 !important;
+        text-decoration: underline wavy #ff9999 !important;
+    }
+    
+    .monaco-editor.vs-dark .spelling-error-line {
+        background-color: rgba(255, 107, 107, 0.1) !important;
+    }
+    
+    /* Glyph decoration for spelling errors */
+    .spelling-error-glyph {
+        background-color: #ffcc00 !important;
+        width: 4px !important;
+        margin-left: 3px;
+    }
+    
+    .monaco-editor.vs-dark .spelling-error-glyph {
+        background-color: #ffcc00 !important;
+    }
+    
+    /* Full line highlighting for spelling errors */
+    .spelling-error-line-highlight {
+        background-color: rgba(255, 107, 107, 0.1) !important;
+        border-left: 3px solid #ff6b6b !important;
+    }
+    
+    .monaco-editor.vs-dark .spelling-error-line-highlight {
+        background-color: rgba(255, 107, 107, 0.15) !important;
+        border-left: 3px solid #ff9999 !important;
+    }
+    
+    /* Bold yellow text for spelling errors - highest specificity */
+    .monaco-editor .view-lines .view-line .spelling-error-text,
+    .monaco-editor .spelling-error-text,
+    .spelling-error-text {
+        font-weight: 900 !important;
+        color: #ffdd00 !important;
+        background-color: rgba(255, 221, 0, 0.2) !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8) !important;
+        border: 1px solid #ffdd00 !important;
+        padding: 0 2px !important;
+    }
+    
+    /* Dark theme version with even higher specificity */
+    .monaco-editor.vs-dark .view-lines .view-line .spelling-error-text,
+    .monaco-editor.vs-dark .spelling-error-text {
+        font-weight: 900 !important;
+        color: #ffdd00 !important;
+        background-color: rgba(255, 221, 0, 0.3) !important;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.9) !important;
+        border: 1px solid #ffdd00 !important;
+        padding: 0 2px !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="content-area">
+            <div class="row justify-content-center">
+                <div class="col-12">
+                    <!-- Header -->
+                    <div class="card card-minecraft mb-4">
+                        <div class="card-header minecraft-theme">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h3><i class="fas fa-edit"></i> Language File Editor</h3>
+                                    <p class="mb-0">Editing: <span id="headerFileName">{{ file_path.split('/')[-1] if file_path else 'Loading...' }}</span> in {{ world.original_filename }}</p>
+                                </div>
+                                <div>
+                                    <a href="{{ url_for('language_file_editor', unpacked_id=world.id) }}" class="btn btn-outline-secondary me-2">
+                                        <i class="fas fa-folder-open"></i> Select Different File
+                                    </a>
+                                    <a href="{{ url_for('language_tools_world', unpacked_id=world.id) }}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left"></i> Back to Language Tools
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Editor Area -->
+                    <div id="editorArea">
+                        <div class="card">
+                            <div class="card-header p-0">
+                                <!-- File Tabs -->
+                                <ul class="nav nav-tabs file-tabs" id="fileTabs" role="tablist">
+                                    <!-- Tabs will be added dynamically -->
+                                </ul>
+                            </div>
+                            <div class="card-body p-0">
+                                <!-- Editor Toolbar -->
+                                <div class="editor-toolbar">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="file-info">
+                                            <span id="currentFileName">No file selected</span>
+                                            <span id="fileStats" class="ms-3"></span>
+                                            <span id="cursorPosition" class="ms-3"></span>
+                                        </div>
+                                        <div>
+                                            <span id="saveIndicator" class="save-indicator">
+                                                <i class="fas fa-check-circle me-1"></i> Saved
+                                            </span>
+                                            <span id="unsavedIndicator" class="unsaved-changes" style="display: none;">
+                                                <i class="fas fa-circle me-1"></i> Unsaved changes
+                                            </span>
+                                            <button id="saveBtn" class="btn btn-success btn-sm ms-2" onclick="saveCurrentFile()" disabled>
+                                                <i class="fas fa-save"></i> Save
+                                            </button>
+                                            <button id="reloadBtn" class="btn btn-outline-secondary btn-sm ms-1" onclick="reloadCurrentFile()" disabled>
+                                                <i class="fas fa-redo"></i> Reload
+                                            </button>
+                                            <button id="spellCheckBtn" class="btn btn-outline-warning btn-sm ms-2" onclick="highlightSpellingErrors()" disabled>
+                                                <i class="fas fa-spell-check"></i> Highlight Spelling
+                                            </button>
+                                            <button id="clearHighlightsBtn" class="btn btn-outline-info btn-sm ms-1" onclick="clearSpellingHighlights()" disabled style="display: none;">
+                                                <i class="fas fa-eraser"></i> Clear Highlights
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Monaco Editor Container -->
+                                <div class="editor-container" id="editorContainer">
+                                    <div class="loading-editor">
+                                        <div class="text-center">
+                                            <i class="fas fa-code fa-3x text-muted mb-3"></i>
+                                            <h5 class="text-muted">Select a file to start editing</h5>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Save Confirmation Modal -->
+<div class="modal fade" id="saveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-save text-success"></i> File Saved Successfully
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>File:</strong> <span id="savedFileName"></span></p>
+                <p><strong>Backup:</strong> A backup of the original file has been created automatically.</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i> Changes are saved to the unpacked world folder. 
+                    Remember to repack the world if you want to use it in Minecraft Education.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Continue Editing</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-exclamation-triangle text-danger"></i> Error
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="errorMessage">An error occurred.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Monaco Editor -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/loader.min.js"></script>
+
+<script>
+let monacoEditor = null;
+let currentFile = null;
+let languageFiles = [];
+let openFiles = new Map(); // Track open files and their content
+let hasUnsavedChanges = false;
+
+// Initialize the editor when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    const filePath = '{{ file_path }}';
+    if (filePath) {
+        // Show editor area immediately
+        document.getElementById('editorArea').style.display = 'block';
+        
+        // Load the specific file
+        loadSpecificFile(filePath);
+    } else {
+        // Redirect to file selector if no file specified
+        window.location.href = '/language_file_editor/{{ world.id }}';
+    }
+});
+
+// Load a specific file directly
+function loadSpecificFile(filePath) {
+    const fileName = filePath.split('/').pop();
+    
+    // Update header
+    document.getElementById('headerFileName').textContent = fileName;
+    
+    // Load file content directly
+    openFile(filePath, fileName);
+}
+
+
+
+// Open a file in the editor
+function openFile(filePath, fileName) {
+    // Show editor area if hidden
+    document.getElementById('editorArea').style.display = 'block';
+    
+    // Check if file is already open
+    if (openFiles.has(filePath)) {
+        switchToFile(filePath);
+        return;
+    }
+
+    // Load file content
+    fetch(`/api/get_file_content/{{ world.id }}?file_path=${encodeURIComponent(filePath)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Add to open files
+                openFiles.set(filePath, {
+                    name: fileName,
+                    content: data.content,
+                    originalContent: data.content,
+                    unsaved: false
+                });
+                
+                // Add tab
+                addFileTab(filePath, fileName);
+                
+                // Initialize Monaco Editor if not already done
+                if (!monacoEditor) {
+                    initializeMonacoEditor(data.content, filePath);
+                } else {
+                    // Switch to new file
+                    switchToFile(filePath);
+                }
+            } else {
+                showError(data.error || 'Failed to load file content');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading file:', error);
+            showError('Network error: ' + error.message);
+        });
+}
+
+// Initialize Monaco Editor
+function initializeMonacoEditor(content, filePath) {
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' }});
+    
+    require(['vs/editor/editor.main'], function () {
+        // Define custom language for .lang files
+        monaco.languages.register({ id: 'minecraft-lang' });
+        
+        // Define syntax highlighting for .lang files
+        monaco.languages.setMonarchTokensProvider('minecraft-lang', {
+            tokenizer: {
+                root: [
+                    [/^[^=]+(?==)/, 'key'],
+                    [/=/, 'delimiter'],
+                    [/.*$/, 'value'],
+                    [/^#.*$/, 'comment'],
+                    [/^\/\/.*$/, 'comment'],
+                    [/%[^%]*%/, 'variable'],
+                    [/\{[^}]*\}/, 'placeholder'],
+                    [/\[[^\]]*\]/, 'section']
+                ]
+            }
+        });
+        
+        // Define dark theme for better readability
+        monaco.editor.defineTheme('minecraft-lang-dark-theme', {
+            base: 'vs-dark',
+            inherit: true,
+            rules: [
+                { token: 'key', foreground: '4FC3F7', fontStyle: 'bold' },
+                { token: 'delimiter', foreground: 'CCCCCC' },
+                { token: 'value', foreground: '66BB6A' },
+                { token: 'comment', foreground: '9C9C9C', fontStyle: 'italic' },
+                { token: 'variable', foreground: 'FFB74D' },
+                { token: 'placeholder', foreground: 'F06292' },
+                { token: 'section', foreground: 'BA68C8', fontStyle: 'bold' }
+            ],
+            colors: {
+                'editor.background': '#1E1E1E',
+                'editor.foreground': '#D4D4D4',
+                'editorLineNumber.foreground': '#858585',
+                'editor.selectionBackground': '#264F78',
+                'editor.inactiveSelectionBackground': '#3A3D41'
+            }
+        });
+        
+        // Set container size first
+        const container = document.getElementById('editorContainer');
+        container.style.height = '520px';
+        container.style.maxHeight = '520px';
+        container.style.overflow = 'hidden';
+        
+        // Create editor with dark theme and fixed dimensions
+        monacoEditor = monaco.editor.create(container, {
+            value: content,
+            language: 'minecraft-lang',
+            theme: 'minecraft-lang-dark-theme',
+            lineNumbers: 'on',
+            renderWhitespace: 'selection',
+            automaticLayout: false,
+            wordWrap: 'on',
+            minimap: { enabled: false },
+            fontSize: 14,
+            lineHeight: 24,
+            tabSize: 4,
+            insertSpaces: true,
+            scrollBeyondLastLine: false,
+            smoothScrolling: true,
+            mouseWheelScrollSensitivity: 1.5,
+            fastScrollSensitivity: 5,
+            folding: false,
+            overviewRulerLanes: 0,
+            find: {
+                addExtraSpaceOnTop: false,
+                autoFindInSelection: 'never',
+                seedSearchStringFromSelection: 'never'
+            },
+            scrollbar: {
+                vertical: 'visible',
+                horizontal: 'visible',
+                verticalScrollbarSize: 12,
+                horizontalScrollbarSize: 12,
+                verticalSliderSize: 12,
+                horizontalSliderSize: 12
+            }
+        });
+        
+        // Force the editor to the exact size we want (520px ≈ 20-22 lines at 24px line height)
+        setTimeout(() => {
+            monacoEditor.layout({ width: container.offsetWidth, height: 520 });
+        }, 100);
+        
+        // Set current file
+        currentFile = filePath;
+        updateFileInfo();
+        
+        // Listen for content changes
+        monacoEditor.onDidChangeModelContent(function() {
+            onContentChange();
+            // Clear spelling highlights when content changes
+            clearSpellingHighlights();
+        });
+        
+        // Listen for cursor position changes
+        monacoEditor.onDidChangeCursorPosition(function(e) {
+            updateCursorPosition(e.position);
+        });
+        
+        // Add keyboard shortcuts
+        monacoEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
+            saveCurrentFile();
+        });
+        
+        // Enable buttons
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('reloadBtn').disabled = false;
+        document.getElementById('spellCheckBtn').disabled = false;
+    });
+}
+
+// Add file tab
+function addFileTab(filePath, fileName) {
+    const tabsContainer = document.getElementById('fileTabs');
+    
+    const tabId = 'tab-' + btoa(filePath).replace(/[^a-zA-Z0-9]/g, '');
+    
+    const tabHtml = `
+        <li class="nav-item" role="presentation">
+            <button class="nav-link ${openFiles.size === 1 ? 'active' : ''}" 
+                    id="${tabId}" 
+                    data-bs-toggle="tab" 
+                    data-file-path="${filePath}"
+                    type="button" 
+                    role="tab"
+                    onclick="switchToFile('${filePath}')">
+                <i class="fas fa-file-code me-2"></i>
+                ${fileName}
+                <span class="unsaved-indicator" style="display: none;">
+                    <i class="fas fa-circle text-warning ms-1" style="font-size: 0.5em;"></i>
+                </span>
+                <button class="btn-close btn-close-sm ms-2" onclick="closeFile('${filePath}', event)" style="font-size: 0.5em;"></button>
+            </button>
+        </li>
+    `;
+    
+    tabsContainer.insertAdjacentHTML('beforeend', tabHtml);
+}
+
+// Switch to a file
+function switchToFile(filePath) {
+    if (!openFiles.has(filePath) || !monacoEditor) return;
+    
+    const fileData = openFiles.get(filePath);
+    currentFile = filePath;
+    
+    // Update editor content
+    monacoEditor.setValue(fileData.content);
+    
+    // Update active tab
+    document.querySelectorAll('.nav-link').forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.dataset.filePath === filePath) {
+            tab.classList.add('active');
+        }
+    });
+    
+    // Update UI
+    updateFileInfo();
+    updateSaveStatus();
+    
+    // Focus editor
+    monacoEditor.focus();
+}
+
+// Close a file
+function closeFile(filePath, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    
+    const fileData = openFiles.get(filePath);
+    if (fileData && fileData.unsaved) {
+        if (!confirm('This file has unsaved changes. Are you sure you want to close it?')) {
+            return;
+        }
+    }
+    
+    // Remove from open files
+    openFiles.delete(filePath);
+    
+    // Remove tab
+    const tabId = 'tab-' + btoa(filePath).replace(/[^a-zA-Z0-9]/g, '');
+    const tab = document.getElementById(tabId);
+    if (tab) {
+        tab.parentElement.remove();
+    }
+    
+    // If this was the current file, switch to another or clear
+    if (currentFile === filePath) {
+        if (openFiles.size > 0) {
+            const nextFile = openFiles.keys().next().value;
+            switchToFile(nextFile);
+        } else {
+            // No files open
+            currentFile = null;
+            if (monacoEditor) {
+                monacoEditor.setValue('');
+            }
+            document.getElementById('currentFileName').textContent = 'No file selected';
+            document.getElementById('fileStats').textContent = '';
+            document.getElementById('cursorPosition').textContent = '';
+            document.getElementById('saveBtn').disabled = true;
+            document.getElementById('reloadBtn').disabled = true;
+            updateSaveStatus();
+        }
+    }
+}
+
+// Handle content changes
+function onContentChange() {
+    if (!currentFile || !monacoEditor) return;
+    
+    const currentContent = monacoEditor.getValue();
+    const fileData = openFiles.get(currentFile);
+    
+    if (fileData) {
+        fileData.content = currentContent;
+        fileData.unsaved = currentContent !== fileData.originalContent;
+        openFiles.set(currentFile, fileData);
+        
+        updateSaveStatus();
+        updateFileInfo();
+    }
+}
+
+// Update save status indicators
+function updateSaveStatus() {
+    const fileData = currentFile ? openFiles.get(currentFile) : null;
+    const hasUnsaved = fileData ? fileData.unsaved : false;
+    
+    document.getElementById('saveIndicator').style.display = hasUnsaved ? 'none' : 'inline-flex';
+    document.getElementById('unsavedIndicator').style.display = hasUnsaved ? 'inline-flex' : 'none';
+    document.getElementById('saveBtn').disabled = !hasUnsaved;
+    
+    // Update tab indicator
+    const tabId = currentFile ? 'tab-' + btoa(currentFile).replace(/[^a-zA-Z0-9]/g, '') : null;
+    if (tabId) {
+        const tab = document.getElementById(tabId);
+        if (tab) {
+            const indicator = tab.querySelector('.unsaved-indicator');
+            if (indicator) {
+                indicator.style.display = hasUnsaved ? 'inline' : 'none';
+            }
+        }
+    }
+    
+    hasUnsavedChanges = hasUnsaved;
+}
+
+// Update file information display
+function updateFileInfo() {
+    if (!currentFile || !monacoEditor) return;
+    
+    const fileData = openFiles.get(currentFile);
+    if (!fileData) return;
+    
+    const content = monacoEditor.getValue();
+    const lines = content.split('\n').length;
+    const chars = content.length;
+    const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+    
+    document.getElementById('currentFileName').textContent = fileData.name;
+    document.getElementById('fileStats').textContent = `${lines} lines, ${words} words, ${chars} characters`;
+}
+
+// Update cursor position display
+function updateCursorPosition(position) {
+    document.getElementById('cursorPosition').textContent = `Line ${position.lineNumber}, Column ${position.column}`;
+}
+
+// Save current file
+function saveCurrentFile() {
+    if (!currentFile || !monacoEditor) return;
+    
+    const content = monacoEditor.getValue();
+    const fileData = openFiles.get(currentFile);
+    
+    if (!fileData || !fileData.unsaved) {
+        return; // Nothing to save
+    }
+    
+    // Show saving state
+    const saveBtn = document.getElementById('saveBtn');
+    const originalText = saveBtn.innerHTML;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    saveBtn.disabled = true;
+    
+    fetch(`/api/save_file_content/{{ world.id }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            file_path: currentFile,
+            content: content
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update file data
+            fileData.originalContent = content;
+            fileData.unsaved = false;
+            openFiles.set(currentFile, fileData);
+            
+            // Update UI
+            updateSaveStatus();
+            
+            // Show success modal
+            document.getElementById('savedFileName').textContent = fileData.name;
+            const saveModal = new bootstrap.Modal(document.getElementById('saveModal'));
+            saveModal.show();
+            
+        } else {
+            showError(data.error || 'Failed to save file');
+        }
+    })
+    .catch(error => {
+        console.error('Error saving file:', error);
+        showError('Network error: ' + error.message);
+    })
+    .finally(() => {
+        // Restore save button
+        saveBtn.innerHTML = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+// Reload current file
+function reloadCurrentFile() {
+    if (!currentFile) return;
+    
+    const fileData = openFiles.get(currentFile);
+    if (fileData && fileData.unsaved) {
+        if (!confirm('This will discard your unsaved changes. Are you sure?')) {
+            return;
+        }
+    }
+    
+    // Reload file content
+    fetch(`/api/get_file_content/{{ world.id }}?file_path=${encodeURIComponent(currentFile)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update file data
+                fileData.content = data.content;
+                fileData.originalContent = data.content;
+                fileData.unsaved = false;
+                openFiles.set(currentFile, fileData);
+                
+                // Update editor
+                monacoEditor.setValue(data.content);
+                
+                // Update UI
+                updateSaveStatus();
+                updateFileInfo();
+                
+            } else {
+                showError(data.error || 'Failed to reload file');
+            }
+        })
+        .catch(error => {
+            console.error('Error reloading file:', error);
+            showError('Network error: ' + error.message);
+        });
+}
+
+// Show error modal
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+    errorModal.show();
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'info' ? 'info' : type === 'success' ? 'success' : 'warning'} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px; max-width: 500px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Add to document
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Spell check functionality
+let spellingDecorations = [];
+
+// Store original content for restoration
+let originalContent = '';
+let spellingErrorsFound = false;
+
+function highlightSpellingErrors() {
+    if (!monacoEditor || !currentFile) return;
+    
+    const content = monacoEditor.getValue();
+    const spellCheckBtn = document.getElementById('spellCheckBtn');
+    const originalText = spellCheckBtn.innerHTML;
+    
+    // Store original content if not already stored
+    if (!originalContent) {
+        originalContent = content;
+    }
+    
+    // Show loading state
+    spellCheckBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking...';
+    spellCheckBtn.disabled = true;
+    
+    fetch('/api/spell_check_content', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            content: originalContent // Always check original content
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Spell check response:', data);
+        if (data.success) {
+            if (data.errors.length > 0) {
+                console.log('Found spelling errors:', data.errors);
+                
+                // Modify the text content to show spelling errors
+                let modifiedContent = originalContent;
+                const lines = modifiedContent.split('\n');
+                
+                // Process each error line
+                data.errors.forEach(error => {
+                    const lineIndex = error.line_number - 1;
+                    if (lineIndex >= 0 && lineIndex < lines.length) {
+                        let line = lines[lineIndex];
+                        
+                        // Wrap each misspelled word with markers
+                        error.misspelled_words.forEach(word => {
+                            const regex = new RegExp(`\\b${word}\\b`, 'gi');
+                            line = line.replace(regex, `⚠️${word}⚠️`);
+                        });
+                        
+                        // Add a comment at the end showing suggestions
+                        const suggestions = Object.entries(error.suggestions)
+                            .map(([word, suggs]) => `${word.replace(/⚠️/g, '')}: ${suggs.join(', ')}`)
+                            .join(' | ');
+                        
+                        lines[lineIndex] = line + `  # SPELLING: ${suggestions}`;
+                    }
+                });
+                
+                modifiedContent = lines.join('\n');
+                
+                // Update editor content
+                monacoEditor.setValue(modifiedContent);
+                spellingErrorsFound = true;
+                
+                // Show clear button
+                document.getElementById('clearHighlightsBtn').style.display = 'inline-block';
+                document.getElementById('clearHighlightsBtn').disabled = false;
+                
+                // Show success message with stats
+                showNotification(`Spell check complete: Found ${data.misspelled_words} misspelled word(s) in ${data.errors.length} line(s). ${data.accuracy_percentage}% accuracy. Words marked with ⚠️ and suggestions added as comments.`, 'info');
+            } else {
+                showNotification('Spell check complete: No spelling errors found!', 'success');
+            }
+        } else {
+            showError(data.error || 'Failed to check spelling');
+        }
+    })
+    .catch(error => {
+        console.error('Error checking spelling:', error);
+        showError('Network error: ' + error.message);
+    })
+    .finally(() => {
+        // Restore button
+        spellCheckBtn.innerHTML = originalText;
+        spellCheckBtn.disabled = false;
+    });
+}
+
+function clearSpellingHighlights() {
+    if (spellingErrorsFound && originalContent && monacoEditor) {
+        // Restore original content
+        monacoEditor.setValue(originalContent);
+        spellingErrorsFound = false;
+        showNotification('Spelling highlights cleared. Original content restored.', 'info');
+    }
+    
+    // Clear any decorations as backup
+    if (spellingDecorations.length > 0 && monacoEditor) {
+        monacoEditor.deltaDecorations(spellingDecorations, []);
+        spellingDecorations = [];
+    }
+    
+    // Hide clear button
+    document.getElementById('clearHighlightsBtn').style.display = 'none';
+}
+
+
+
+// Warn about unsaved changes when leaving page
+window.addEventListener('beforeunload', function(e) {
+    if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+    }
+});
+</script>
+{% endblock %}

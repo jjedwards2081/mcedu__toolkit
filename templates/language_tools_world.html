@@ -41,7 +41,7 @@
                         </div>
                         <div class="card-body">
                             <div class="row">
-                                <div class="col-md-4 mb-3">
+                                <div class="col-md-3 mb-3">
                                     <div class="card h-100">
                                         <div class="card-body text-center">
                                             <i class="fas fa-search fa-3x text-primary mb-3"></i>
@@ -53,7 +53,19 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4 mb-3">
+                                <div class="col-md-3 mb-3">
+                                    <div class="card h-100">
+                                        <div class="card-body text-center">
+                                            <i class="fas fa-edit fa-3x text-info mb-3"></i>
+                                            <h5 class="card-title">Language File Editor</h5>
+                                            <p class="card-text">Edit language files with syntax highlighting and line numbers.</p>
+                                            <button class="btn btn-info" onclick="openFileEditor()">
+                                                <i class="fas fa-edit"></i> Open Editor
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-3 mb-3">
                                     <div class="card h-100">
                                         <div class="card-body text-center">
                                             <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
@@ -65,7 +77,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <div class="col-md-4 mb-3">
+                                <div class="col-md-3 mb-3">
                                     <div class="card h-100">
                                         <div class="card-body text-center">
                                             <i class="fas fa-spell-check fa-3x text-warning mb-3"></i>
@@ -208,6 +220,11 @@ function performSpellCheck() {
             loadingText.textContent = 'This may take a moment depending on the size of the world.';
             displayError('Network error: ' + error.message);
         });
+}
+
+function openFileEditor() {
+    // Redirect to the language file editor page
+    window.location.href = `/language_file_editor/{{ world.id }}`;
 }
 
 function displayLanguageFiles(data) {
