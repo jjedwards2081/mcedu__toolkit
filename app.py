@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename  
 import os
 import json
 import zipfile
@@ -18,12 +18,36 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 import io
+from openai import AzureOpenAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this-in-production'
 app.config['UPLOAD_FOLDER'] = 'store'
 app.config['UNPACKED_FOLDER'] = 'unpacked'
 app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500 MB max file size
+
+# Azure OpenAI Configuration - loaded from environment variables
+AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
+AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT')
+AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION', '2024-12-01-preview')
+AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-5-chat')
+
+# Initialize Azure OpenAI client with error handling
+azure_openai_client = None
+try:
+    azure_openai_client = AzureOpenAI(
+        api_version=AZURE_OPENAI_API_VERSION,
+        azure_endpoint=AZURE_OPENAI_ENDPOINT,
+        api_key=AZURE_OPENAI_API_KEY
+    )
+    print("Azure OpenAI client initialized successfully")
+except Exception as e:
+    print(f"Warning: Could not initialize Azure OpenAI client: {e}")
+    print("Educational resources will use traditional generation methods")
 ALLOWED_EXTENSIONS = {'mcworld', 'mctemplate'}
 
 # Create directories if they don't exist
