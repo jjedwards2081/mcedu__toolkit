@@ -5,3 +5,5 @@ textstat==0.7.1
 nltk==3.8.1
 reportlab==4.0.7
 pyspellchecker==0.7.2
+openai==2.7.1
+python-dotenv==1.0.0

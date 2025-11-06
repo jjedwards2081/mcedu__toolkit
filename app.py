@@ -48,6 +48,116 @@ try:
 except Exception as e:
     print(f"Warning: Could not initialize Azure OpenAI client: {e}")
     print("Educational resources will use traditional generation methods")
+
+# AI Helper Functions
+def call_azure_openai(prompt, max_tokens=2000, temperature=0.7):
+    """Call Azure OpenAI with error handling"""
+    if azure_openai_client is None:
+        print("Azure OpenAI client not available, using fallback method")
+        return None
+        
+    try:
+        print(f"Calling Azure OpenAI with prompt length: {len(prompt)} characters")
+        response = azure_openai_client.chat.completions.create(
+            model=AZURE_OPENAI_DEPLOYMENT_NAME,
+            messages=[
+                {"role": "system", "content": "You are a professional educational document generator specializing in Minecraft Education. Create clean, structured educational materials without any conversational elements, greetings, or chat responses. Focus exclusively on producing well-formatted lesson plans, assessments, and educational content. Do not include phrases like 'Here's your lesson plan' or 'I hope this helps'. Start directly with the educational content using proper markdown formatting with headers, lists, and structured sections. Always refer to the platform as 'Minecraft Education' not 'Minecraft Education Edition'."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=1.0
+        )
+        print(f"Azure OpenAI response received successfully, length: {len(response.choices[0].message.content)} characters")
+        return response.choices[0].message.content
+    except Exception as e:
+        print(f"Azure OpenAI Error: {str(e)}")
+        print(f"Error details: {type(e).__name__}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
+        return None
+
+def extract_educational_context(world_data):
+    """Extract comprehensive educational context from world data for AI prompts"""
+    # Extract core content from language files
+    educational_content = world_data.get('educational_content', '')
+    primary_file = world_data.get('primary_language_file', 'Educational World')
+    
+    # Extract NPC dialogue and educational text from the content
+    npc_content = extract_npc_content(educational_content)
+    learning_content = extract_learning_content(educational_content)
+    
+    context = {
+        'themes': world_data.get('themes', []),
+        'learning_objectives': world_data.get('learning_objectives', []),
+        'key_concepts': world_data.get('key_concepts', []),
+        'educational_content': educational_content,
+        'npc_dialogue': npc_content,
+        'learning_content': learning_content,
+        'age_range': world_data.get('world_info', {}).get('estimated_age_range', 'Middle School'),
+        'reading_level': world_data.get('world_info', {}).get('reading_level_description', 'Grade 6-8'),
+        'complexity_level': world_data.get('world_info', {}).get('complexity_level', 'Intermediate'),
+        'world_name': primary_file.replace('.lang', '').replace('_', ' ').title(),
+        'world_features': {
+            'has_behavior_packs': world_data.get('world_info', {}).get('has_behavior_packs', False),
+            'has_resource_packs': world_data.get('world_info', {}).get('has_resource_packs', False),
+            'has_structures': world_data.get('world_info', {}).get('has_structures', False)
+        }
+    }
+    return context
+
+def extract_npc_content(educational_text):
+    """Extract NPC dialogue and character interactions from educational content"""
+    if not educational_text:
+        return []
+    
+    npc_patterns = [
+        r'(.*(?:say|tell|ask|explain|teach|guide|help|welcome|greet).*)',
+        r'(.*(?:npc|character|guide|teacher|mentor|advisor).*)',
+        r'(.*(?:hello|hi|welcome|good|thanks|please|help).*)',
+        r'(.*(?:quest|task|mission|challenge|activity|lesson).*)',
+        r'(.*(?:learn|discover|explore|find|collect|build|create).*)'
+    ]
+    
+    npc_content = []
+    sentences = educational_text.split('.')
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if len(sentence) > 10 and len(sentence) < 200:
+            for pattern in npc_patterns:
+                if re.search(pattern, sentence, re.IGNORECASE):
+                    npc_content.append(sentence)
+                    break
+    
+    return npc_content[:10]  # Return top 10 NPC-related content pieces
+
+def extract_learning_content(educational_text):
+    """Extract specific learning content and instructional text"""
+    if not educational_text:
+        return []
+    
+    learning_patterns = [
+        r'(.*(?:students?|learn|study|understand|know|remember|identify).*)',
+        r'(.*(?:objective|goal|aim|purpose|skill|knowledge).*)',
+        r'(.*(?:instruction|direction|step|process|method|way).*)',
+        r'(.*(?:example|for instance|such as|including|like).*)',
+        r'(.*(?:important|key|main|primary|essential|crucial).*)'
+    ]
+    
+    learning_content = []
+    sentences = educational_text.split('.')
+    
+    for sentence in sentences:
+        sentence = sentence.strip()
+        if len(sentence) > 15 and len(sentence) < 300:
+            for pattern in learning_patterns:
+                if re.search(pattern, sentence, re.IGNORECASE):
+                    learning_content.append(sentence)
+                    break
+    
+    return learning_content[:15]  # Return top 15 learning-related content pieces
+
 ALLOWED_EXTENSIONS = {'mcworld', 'mctemplate'}
 
 # Create directories if they don't exist
@@ -1506,29 +1616,597 @@ def analyze_world_structure(world_path):
     
     return world_info
 
+# AI-Enhanced Educational Resource Generation Functions
+
+def get_largest_language_file_content(unpacked_folder_name):
+    """Get the raw content from the largest language file in an unpacked world"""
+    try:
+        # Find all language files
+        lang_files = find_language_files(unpacked_folder_name)
+        
+        if not lang_files:
+            return None, "No language files found"
+        
+        # Prioritize English files, then fall back to largest file
+        english_files = [f for f in lang_files if f.get('is_english', False)]
+        
+        if english_files:
+            # Use the largest English file
+            largest_file = max(english_files, key=lambda x: x.get('size_bytes', 0))
+        else:
+            # Use the largest file overall
+            largest_file = max(lang_files, key=lambda x: x.get('size_bytes', 0))
+        
+        # Read the raw content without filtering
+        try:
+            with open(largest_file['full_path'], 'r', encoding='utf-8', errors='ignore') as f:
+                raw_content = f.read()
+        except:
+            try:
+                with open(largest_file['full_path'], 'r', encoding='latin-1', errors='ignore') as f:
+                    raw_content = f.read()
+            except:
+                return None, f"Could not read file {largest_file['name']}"
+        
+        # Clean the content - remove comments and empty lines, but keep all key=value pairs
+        cleaned_lines = []
+        for line in raw_content.split('\n'):
+            line = line.strip()
+            if line and not line.startswith('#') and not line.startswith('//') and '=' in line:
+                cleaned_lines.append(line)
+        
+        cleaned_content = '\n'.join(cleaned_lines)
+        
+        return {
+            'content': cleaned_content,
+            'raw_content': raw_content,
+            'file_info': largest_file,
+            'total_lines': len(cleaned_lines),
+            'content_length': len(cleaned_content)
+        }, None
+        
+    except Exception as e:
+        return None, f"Error reading language file: {str(e)}"
+
+def generate_ai_lesson_plan(world_data):
+    """Generate an AI-powered lesson plan using Azure OpenAI GPT-5-Chat based on actual world content"""
+    context = extract_educational_context(world_data)
+    
+    # Get the unpacked folder name from world_data
+    unpacked_folder_name = world_data.get('unpacked_folder_name')
+    
+    # Try to get raw language file content first
+    language_content = None
+    content_source = "world analysis context"
+    
+    if unpacked_folder_name:
+        try:
+            lang_content_data, error = get_largest_language_file_content(unpacked_folder_name)
+            if lang_content_data and not error:
+                # Use raw language file content - strip down for AI processing
+                raw_content = lang_content_data['content']
+                
+                # Clean and prepare content for AI - keep user-facing text
+                content_lines = []
+                for line in raw_content.split('\n'):
+                    if '=' in line:
+                        try:
+                            key, value = line.split('=', 1)
+                            key = key.strip()
+                            value = value.strip()
+                            
+                            # Filter for user-facing content (similar to is_educational_content logic)
+                            if value and len(value) > 5 and not value.startswith('minecraft:'):
+                                # Include dialogue, messages, instructions, etc.
+                                if any(pattern in key.lower() for pattern in [
+                                    'dialog', 'message', 'text', 'instruction', 'guide', 'help',
+                                    'npc', 'character', 'lesson', 'tutorial', 'story', 'narrative',
+                                    'sign', 'book', 'chat', 'conversation', 'activity', 'quest'
+                                ]):
+                                    content_lines.append(f"{key}: {value}")
+                        except ValueError:
+                            continue
+                
+                if content_lines:
+                    language_content = '\n'.join(content_lines[:50])  # Limit to 50 most relevant lines
+                    content_source = f"raw content from {lang_content_data['file_info']['name']} ({lang_content_data['file_info']['language_code']})"
+                    
+        except Exception as e:
+            print(f"Error getting language file content: {e}")
+    
+    # Fallback to extracted educational content or context
+    if not language_content:
+        educational_content = world_data.get('educational_content', '')
+        
+        if educational_content and len(educational_content.strip()) > 100:
+            language_content = educational_content[:6000]  # Use extracted educational content
+            content_source = "extracted educational text from language file analysis"
+        else:
+            # Build from context if no substantial content
+            npc_dialogue_text = '\n'.join(context['npc_dialogue']) if context['npc_dialogue'] else 'No NPC dialogue found'
+            learning_content_text = '\n'.join(context['learning_content']) if context['learning_content'] else 'No specific learning content found'
+            language_content = f"NPC Dialogue:\n{npc_dialogue_text[:2000]}\n\nLearning Content:\n{learning_content_text[:2000]}"
+            content_source = "extracted context from world analysis"
+    
+    key_concepts_text = ', '.join(context['key_concepts']) if context['key_concepts'] else 'General concepts'
+    
+    prompt = f"""
+ANALYZE this Minecraft Education world and create a comprehensive lesson plan. First conduct a thorough educational analysis, then generate the lesson plan.
+
+## WORLD METADATA:
+- File Source: {context['world_name']} (technical filename)
+- Target Age Range: {context['age_range']}
+- Reading Level: {context['reading_level']}
+- Complexity: {context['complexity_level']}
+- Pre-identified Themes: {', '.join(context['themes']) if context['themes'] else 'Interactive Learning'}
+
+## ACTUAL WORLD CONTENT TO ANALYZE ({content_source}):
+{language_content}
+
+## WORLD TECHNICAL FEATURES:
+- Behavior Packs: {'Yes' if context['world_features']['has_behavior_packs'] else 'No'}
+- Resource Packs: {'Yes' if context['world_features']['has_resource_packs'] else 'No'}
+- Structures: {'Yes' if context['world_features']['has_structures'] else 'No'}
+
+## KEY CONCEPTS IDENTIFIED: {key_concepts_text}
+
+FIRST, analyze the world content above and determine:
+1. What is the ACTUAL GAME TITLE? (Look in the content above for the real world/game title, not the filename)
+2. What is the PRIMARY educational purpose of this world based on the actual content?
+3. What specific learning outcomes can students achieve through this world?
+4. What pedagogical approach does this world support (inquiry-based, problem-solving, simulation, etc.)?
+5. How do the NPCs, dialogue, and world features support the learning objectives?
+6. What real-world skills or knowledge does this world aim to develop?
+7. What is the main storyline, scenario, or theme presented in the world content?
+
+THEN, create a professional lesson plan document using this analysis:
+
+# Educational Analysis and Lesson Plan: [Actual Game Title from Content]
+
+## Educational Context Analysis
+
+### Game Title and Theme
+[The actual game title found in the content and its main theme/storyline]
+
+### Primary Learning Purpose
+[Based on world content analysis, what is the main educational goal?]
+
+### Learning Outcomes
+[What specific skills/knowledge will students gain?]
+
+### Pedagogical Approach
+[What teaching methodology does this world support?]
+
+### World Design Evaluation
+[How do the NPCs, dialogue, and features support learning?]
+
+---
+
+# Lesson Plan: [Specific Lesson Title Based on Actual Game Content]
+
+## Learning Objectives
+- [3-5 specific, measurable objectives based on your analysis above]
+
+## Materials Needed
+- Minecraft Education
+- [Other specific materials based on world features]
+
+## Lesson Structure
+
+### Introduction (10 minutes)
+- [Activities that leverage the world's specific context and purpose]
+
+### Main Activity (25-35 minutes)
+- [Step-by-step activities using identified NPCs, dialogue, and world mechanics]
+- [Include specific references to world content found in the language files]
+
+### Conclusion (10-15 minutes)
+- [Synthesis activities connecting world experience to real-world applications]
+
+## Assessment Methods
+- [Evaluation strategies that align with the identified learning outcomes]
+
+## Extension Activities
+- [Additional activities building on the world's specific educational context]
+
+## Real-World Connections
+- [Specific connections to curriculum standards and life applications based on analysis]
+
+## Implementation Notes
+- [Specific guidance on using this world's unique features, NPCs, and content]
+
+REQUIREMENTS:
+- Base all content on the educational analysis conducted above
+- Reference specific world elements (NPCs, dialogue, features) identified in the content
+- Ensure activities match {context['age_range']} developmental needs
+- Use professional document formatting
+- NO conversational elements
+"""
+
+    ai_content = call_azure_openai(prompt, max_tokens=16384, temperature=0.7)
+    
+    if ai_content:
+        return {
+            'type': 'lesson_plan',
+            'title': f"AI-Generated Lesson Plan: {context['world_name']}",
+            'content': ai_content,
+            'generated_by': 'Azure OpenAI GPT-5-Chat',
+            'timestamp': datetime.now().isoformat(),
+            'content_source': content_source,
+            'content_length': len(language_content or '')
+        }
+    else:
+        # Fallback to traditional method
+        return generate_lesson_plan(world_data)
+
+def generate_ai_quiz(world_data):
+    """Generate an AI-powered student quiz using Azure OpenAI GPT-5-Chat based on actual world content"""
+    context = extract_educational_context(world_data)
+    
+    # Get the unpacked folder name from world_data
+    unpacked_folder_name = world_data.get('unpacked_folder_name')
+    
+    # Try to get raw language file content first
+    language_content = None
+    content_source = "world analysis context"
+    
+    if unpacked_folder_name:
+        try:
+            lang_content_data, error = get_largest_language_file_content(unpacked_folder_name)
+            if lang_content_data and not error:
+                # Use raw language file content - strip down for AI processing
+                raw_content = lang_content_data['content']
+                
+                # Clean and prepare content for AI - keep user-facing text
+                content_lines = []
+                for line in raw_content.split('\n'):
+                    if '=' in line:
+                        try:
+                            key, value = line.split('=', 1)
+                            key = key.strip()
+                            value = value.strip()
+                            
+                            # Filter for user-facing content (similar to is_educational_content logic)
+                            if value and len(value) > 5 and not value.startswith('minecraft:'):
+                                # Include dialogue, messages, instructions, etc.
+                                if any(pattern in key.lower() for pattern in [
+                                    'dialog', 'message', 'text', 'instruction', 'guide', 'help',
+                                    'npc', 'character', 'lesson', 'tutorial', 'story', 'narrative',
+                                    'sign', 'book', 'chat', 'conversation', 'activity', 'quest'
+                                ]):
+                                    content_lines.append(f"{key}: {value}")
+                        except ValueError:
+                            continue
+                
+                if content_lines:
+                    language_content = '\n'.join(content_lines[:50])  # Limit to 50 most relevant lines
+                    content_source = f"raw content from {lang_content_data['file_info']['name']} ({lang_content_data['file_info']['language_code']})"
+                    
+        except Exception as e:
+            print(f"Error getting language file content: {e}")
+    
+    # Fallback to extracted educational content or context
+    if not language_content:
+        educational_content = world_data.get('educational_content', '')
+        
+        if educational_content and len(educational_content.strip()) > 100:
+            language_content = educational_content[:6000]  # Use extracted educational content
+            content_source = "extracted educational text from language file analysis"
+        else:
+            # Build from context if no substantial content
+            npc_dialogue_text = '\n'.join(context['npc_dialogue']) if context['npc_dialogue'] else 'No NPC dialogue found'
+            learning_content_text = '\n'.join(context['learning_content']) if context['learning_content'] else 'No specific learning content found'
+            language_content = f"NPC Dialogue:\n{npc_dialogue_text[:2000]}\n\nLearning Content:\n{learning_content_text[:2000]}"
+            content_source = "extracted context from world analysis"
+    
+    key_concepts_text = ', '.join(context['key_concepts']) if context['key_concepts'] else 'General concepts'
+    
+    prompt = f"""
+ANALYZE this Minecraft Education world and create a comprehensive student assessment quiz. First conduct a thorough educational analysis, then generate the quiz.
+
+## WORLD METADATA:
+- File Source: {context['world_name']} (technical filename)
+- Target Age Range: {context['age_range']}
+- Reading Level: {context['reading_level']}
+- Complexity: {context['complexity_level']}
+- Pre-identified Themes: {', '.join(context['themes']) if context['themes'] else 'Interactive Learning'}
+
+## ACTUAL WORLD CONTENT TO ANALYZE ({content_source}):
+{language_content}
+
+## WORLD TECHNICAL FEATURES:
+- Behavior Packs: {'Yes' if context['world_features']['has_behavior_packs'] else 'No'}
+- Resource Packs: {'Yes' if context['world_features']['has_resource_packs'] else 'No'}
+- Structures: {'Yes' if context['world_features']['has_structures'] else 'No'}
+
+## KEY CONCEPTS IDENTIFIED: {key_concepts_text}
+
+FIRST, analyze the world content above and determine:
+1. What is the ACTUAL GAME TITLE? (Look in the content above for the real world/game title, not the filename)
+2. What specific knowledge and skills does this world teach?
+3. What are the key learning points students should demonstrate understanding of?
+4. What types of assessment questions would best evaluate student comprehension?
+5. How can quiz questions reference specific world elements (NPCs, scenarios, dialogue)?
+
+THEN, create a professional student quiz document using this analysis:
+
+# Student Assessment Quiz: [Actual Game Title from Content]
+
+## Educational Context Analysis
+
+### Game Title and Learning Focus
+[The actual game title found in the content and what students are meant to learn]
+
+### Assessment Objectives
+[What knowledge/skills this quiz will evaluate based on the world content]
+
+---
+
+# Quiz: [Specific Quiz Title Based on Game Content]
+
+## Instructions
+[Clear instructions for students appropriate for {context['age_range']}]
+
+## Section 1: Multiple Choice Questions
+[5-7 multiple choice questions based on specific world content, NPCs, scenarios]
+
+## Section 2: True/False Questions  
+[3-5 true/false questions about key concepts from the world]
+
+## Section 3: Short Answer Questions
+[2-4 short answer questions requiring students to explain concepts or describe world elements]
+
+## Section 4: Application Questions
+[1-2 higher-order thinking questions connecting world learning to real-world applications]
+
+## Answer Key
+[Complete answer key with explanations referencing specific world content]
+
+## Scoring Rubric
+[Clear scoring guidelines appropriate for age group]
+
+REQUIREMENTS:
+- Base all questions on the actual world content and analysis above
+- Reference specific NPCs, dialogue, scenarios, and world features in questions
+- Make questions appropriate for {context['age_range']} cognitive level
+- Use professional quiz formatting with clear sections
+- Include varied question types to assess different learning levels
+- NO conversational elements - direct educational content only
+"""
+
+    ai_content = call_azure_openai(prompt, max_tokens=16384, temperature=0.7)
+    
+    if ai_content:
+        return {
+            'type': 'student_quiz',
+            'title': f"AI-Generated Quiz: {context['world_name']}",
+            'content': ai_content,
+            'generated_by': 'Azure OpenAI GPT-5-Chat',
+            'timestamp': datetime.now().isoformat(),
+            'content_source': content_source,
+            'content_length': len(language_content or '')
+        }
+    else:
+        # Fallback to traditional method
+        return generate_student_quiz(world_data)
+
+def generate_ai_parent_letter(world_data):
+    """Generate an AI-powered parent letter using Azure OpenAI GPT-5-Chat based on actual world content"""
+    context = extract_educational_context(world_data)
+    
+    # Get the unpacked folder name from world_data
+    unpacked_folder_name = world_data.get('unpacked_folder_name')
+    
+    # Try to get raw language file content first
+    language_content = None
+    content_source = "world analysis context"
+    
+    if unpacked_folder_name:
+        try:
+            lang_content_data, error = get_largest_language_file_content(unpacked_folder_name)
+            if lang_content_data and not error:
+                # Use raw language file content - strip down for AI processing
+                raw_content = lang_content_data['content']
+                
+                # Clean and prepare content for AI - keep user-facing text
+                content_lines = []
+                for line in raw_content.split('\n'):
+                    if '=' in line:
+                        try:
+                            key, value = line.split('=', 1)
+                            key = key.strip()
+                            value = value.strip()
+                            
+                            # Filter for user-facing content (similar to is_educational_content logic)
+                            if value and len(value) > 5 and not value.startswith('minecraft:'):
+                                # Include dialogue, messages, instructions, etc.
+                                if any(pattern in key.lower() for pattern in [
+                                    'dialog', 'message', 'text', 'instruction', 'guide', 'help',
+                                    'npc', 'character', 'lesson', 'tutorial', 'story', 'narrative',
+                                    'sign', 'book', 'chat', 'conversation', 'activity', 'quest'
+                                ]):
+                                    content_lines.append(f"{key}: {value}")
+                        except ValueError:
+                            continue
+                
+                if content_lines:
+                    language_content = '\n'.join(content_lines[:50])  # Limit to 50 most relevant lines
+                    content_source = f"raw content from {lang_content_data['file_info']['name']} ({lang_content_data['file_info']['language_code']})"
+                    
+        except Exception as e:
+            print(f"Error getting language file content: {e}")
+    
+    # Fallback to extracted educational content or context
+    if not language_content:
+        educational_content = world_data.get('educational_content', '')
+        
+        if educational_content and len(educational_content.strip()) > 100:
+            language_content = educational_content[:6000]  # Use extracted educational content
+            content_source = "extracted educational text from language file analysis"
+        else:
+            # Build from context if no substantial content
+            npc_dialogue_text = '\n'.join(context['npc_dialogue']) if context['npc_dialogue'] else 'No NPC dialogue found'
+            learning_content_text = '\n'.join(context['learning_content']) if context['learning_content'] else 'No specific learning content found'
+            language_content = f"NPC Dialogue:\n{npc_dialogue_text[:2000]}\n\nLearning Content:\n{learning_content_text[:2000]}"
+            content_source = "extracted context from world analysis"
+    
+    key_concepts_text = ', '.join(context['key_concepts']) if context['key_concepts'] else 'General concepts'
+    
+    prompt = f"""
+ANALYZE this Minecraft Education world and create a comprehensive parent information letter. First conduct a thorough educational analysis, then generate the parent communication.
+
+## WORLD METADATA:
+- File Source: {context['world_name']} (technical filename)
+- Target Age Range: {context['age_range']}
+- Reading Level: {context['reading_level']}
+- Complexity: {context['complexity_level']}
+- Pre-identified Themes: {', '.join(context['themes']) if context['themes'] else 'Interactive Learning'}
+
+## ACTUAL WORLD CONTENT TO ANALYZE ({content_source}):
+{language_content}
+
+## WORLD TECHNICAL FEATURES:
+- Behavior Packs: {'Yes' if context['world_features']['has_behavior_packs'] else 'No'}
+- Resource Packs: {'Yes' if context['world_features']['has_resource_packs'] else 'No'}
+- Structures: {'Yes' if context['world_features']['has_structures'] else 'No'}
+
+## KEY CONCEPTS IDENTIFIED: {key_concepts_text}
+
+FIRST, analyze the world content above and determine:
+1. What is the ACTUAL GAME TITLE? (Look in the content above for the real world/game title, not the filename)
+2. What specific educational benefits will students gain from this world?
+3. What skills (21st century skills, curriculum standards) does this world develop?
+4. What might parents be curious or concerned about regarding their child's Minecraft education?
+5. How can parents support this learning at home?
+6. What makes this particular world educationally valuable?
+
+THEN, create a professional parent communication letter using this analysis. Start directly with the letter - no analysis section:
+
+# Dear Parents and Guardians,
+
+## Re: Upcoming Minecraft Education Activity - [Actual Game Title]
+
+[Professional, warm introduction explaining the upcoming Minecraft Education activity using the actual game title]
+
+## About This Educational Experience
+
+[Detailed explanation of what this specific world teaches, based on actual content analysis]
+
+## Educational Benefits for Your Child
+
+### Academic Skills Development
+[Specific academic skills this world develops, appropriate for {context['age_range']}]
+
+### 21st Century Skills
+[Critical thinking, collaboration, creativity, communication skills this world fosters]
+
+### Curriculum Connections
+[How this world aligns with curriculum standards and learning objectives]
+
+## What Your Child Will Experience
+
+[Specific activities, challenges, and learning experiences based on world content analysis]
+
+## Safety and Digital Citizenship
+
+[Information about Minecraft Education's safety features and supervised learning environment]
+
+## How You Can Support Learning at Home
+
+[Specific suggestions for extending world-based learning into home conversations and activities]
+
+## Addressing Common Parent Questions
+
+### Is this just playing games?
+[Professional explanation of educational gaming and learning through play]
+
+### What about screen time concerns?
+[Balanced perspective on educational screen time vs entertainment screen time]
+
+### How does this connect to "real" learning?
+[Specific examples of how world skills transfer to academic and life success]
+
+## Contact Information
+
+[Teacher contact information and invitation for questions or concerns]
+
+## Conclusion
+
+[Positive closing emphasizing partnership in child's education]
+
+Sincerely,
+[Teacher Name]
+[School/Class Information]
+
+REQUIREMENTS:
+- Base all content on the educational analysis conducted above
+- Reference specific world elements and learning opportunities identified in the content
+- Use warm, professional tone appropriate for parent communication
+- Address common parent concerns about gaming in education
+- Make content specific to THIS world, not generic Minecraft education
+- Use clear, accessible language that explains educational benefits
+- NO conversational elements - direct professional communication only
+"""
+
+    ai_content = call_azure_openai(prompt, max_tokens=16384, temperature=0.7)
+    
+    if ai_content:
+        return {
+            'type': 'parent_letter',
+            'title': f"Parent Letter: {context['world_name']}",
+            'content': ai_content,
+            'generated_by': 'Azure OpenAI GPT-5-Chat',
+            'timestamp': datetime.now().isoformat(),
+            'content_source': content_source,
+            'content_length': len(language_content or '')
+        }
+    else:
+        # Fallback to traditional method
+        return generate_parent_letter(world_data)
+
 def generate_educational_resource(unpacked_folder_name, resource_type):
     """Generate a specific type of educational resource"""
     try:
+        print(f"Generating {resource_type} for {unpacked_folder_name}")
+        
         # Analyze world content first
         world_data = analyze_world_content(unpacked_folder_name)
         
         if not world_data:
+            print("World data analysis returned None")
             return None
+        
+        print(f"World data analyzed successfully, keys: {list(world_data.keys())}")
+        
+        # Add the unpacked folder name to world_data for AI functions
+        world_data['unpacked_folder_name'] = unpacked_folder_name
             
-        # Generate resource based on type
+        # Generate resource based on type using AI-enhanced versions
         if resource_type == 'lesson_plan':
-            return generate_lesson_plan(world_data)
+            print("Calling generate_ai_lesson_plan")
+            result = generate_ai_lesson_plan(world_data)
+            print(f"AI lesson plan result: {'Success' if result else 'Failed'}")
+            return result
         elif resource_type == 'student_quiz':
-            return generate_student_quiz(world_data)
+            print("Calling generate_ai_quiz")
+            result = generate_ai_quiz(world_data)
+            print(f"AI quiz result: {'Success' if result else 'Failed'}")
+            return result
         elif resource_type == 'topic_introduction':
             return generate_topic_introduction(world_data)
         elif resource_type == 'parent_letter':
-            return generate_parent_letter(world_data)
+            print("Calling generate_ai_parent_letter")
+            result = generate_ai_parent_letter(world_data)
+            print(f"AI parent letter result: {'Success' if result else 'Failed'}")
+            return result
         else:
+            print(f"Unknown resource type: {resource_type}")
             return None
             
     except Exception as e:
         print(f"Error generating educational resource: {e}")
+        import traceback
+        print(f"Full traceback: {traceback.format_exc()}")
         return None
 
 def generate_lesson_plan(world_data):
@@ -1544,7 +2222,7 @@ def generate_lesson_plan(world_data):
         'subject_areas': themes,
         'learning_objectives': objectives,
         'materials_needed': [
-            'Minecraft Education Edition',
+            'Minecraft Education',
             'Student devices (tablets/computers)',
             'World file: ' + world_data.get('primary_language_file', 'Educational World'),
             'Student worksheets (optional)',
@@ -1666,9 +2344,9 @@ def generate_student_quiz(world_data):
     questions.extend([
         {
             'type': 'true_false',
-            'question': 'Minecraft Education Edition can be used to learn about real-world concepts.',
+            'question': 'Minecraft Education can be used to learn about real-world concepts.',
             'correct_answer': True,
-            'explanation': 'Minecraft Education Edition is specifically designed to teach real-world concepts through virtual exploration.'
+            'explanation': 'Minecraft Education is specifically designed to teach real-world concepts through virtual exploration.'
         },
         {
             'type': 'true_false',
@@ -1733,7 +2411,7 @@ def generate_topic_introduction(world_data):
             'Interactive Learning', 'Virtual Environment', 'Educational Content', 'Collaboration'
         ],
         'getting_started': [
-            'Launch Minecraft Education Edition on your device',
+            'Launch Minecraft Education on your device',
             'Join the educational world with your classmates',
             'Follow the guided tour to familiarize yourself with the environment',
             'Pay attention to signs, NPCs, and interactive elements',
@@ -1768,10 +2446,10 @@ def generate_parent_letter(world_data):
     letter = {
         'subject': f'Your Child Will Be Learning About {primary_theme} Through Minecraft Education',
         'greeting': 'Dear Parents and Guardians,',
-        'introduction': f'I am excited to share with you an innovative learning opportunity that your child will be participating in. We will be using Minecraft Education Edition to explore and learn about {primary_theme.lower()} in an engaging, interactive virtual environment.',
+        'introduction': f'I am excited to share with you an innovative learning opportunity that your child will be participating in. We will be using Minecraft Education to explore and learn about {primary_theme.lower()} in an engaging, interactive virtual environment.',
         'about_minecraft_education': {
-            'title': 'What is Minecraft Education Edition?',
-            'content': 'Minecraft Education Edition is a game-based learning platform that promotes creativity, collaboration, and problem-solving in an immersive digital environment. It is specifically designed for educational use and is used by millions of students worldwide to learn subjects ranging from history and science to mathematics and language arts.'
+            'title': 'What is Minecraft Education?',
+            'content': 'Minecraft Education is a game-based learning platform that promotes creativity, collaboration, and problem-solving in an immersive digital environment. It is specifically designed for educational use and is used by millions of students worldwide to learn subjects ranging from history and science to mathematics and language arts.'
         },
         'learning_benefits': {
             'title': f'How Will This Help Your Child Learn About {primary_theme}?',
@@ -1797,7 +2475,7 @@ def generate_parent_letter(world_data):
         },
         'safety_and_monitoring': {
             'title': 'Safety and Supervision',
-            'content': 'Minecraft Education Edition provides a safe, controlled environment for learning. Students can only interact with their classmates, and all activities are supervised by the teacher. The platform includes built-in tools for classroom management and student monitoring.'
+            'content': 'Minecraft Education provides a safe, controlled environment for learning. Students can only interact with their classmates, and all activities are supervised by the teacher. The platform includes built-in tools for classroom management and student monitoring.'
         },
         'support_at_home': {
             'title': 'How You Can Support Learning at Home',
@@ -1819,7 +2497,7 @@ def generate_parent_letter(world_data):
                 },
                 {
                     'question': 'Will my child become too focused on gaming?',
-                    'answer': 'Minecraft Education Edition is different from recreational gaming. It is used as a learning tool with specific educational objectives and time limits.'
+            'answer': 'Minecraft Education is different from recreational gaming. It is used as a learning tool with specific educational objectives and time limits.'
                 },
                 {
                     'question': 'What if my child is not familiar with Minecraft?',
