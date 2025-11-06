@@ -98,7 +98,7 @@
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     <div>
                         <strong>AI Features Not Available:</strong> {{ ai_status_message }}
-                        <br><small>Educational resources will be generated using traditional methods with reduced customization.</small>
+                        <br><small>Lesson Plans, Quizzes, and Parent Letters are currently disabled. Contact your administrator to enable AI-powered educational resource generation.</small>
                     </div>
                 </div>
                 <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -119,28 +119,40 @@
             <div class="row">
                 <!-- Lesson Plan -->
                 <div class="col-md-6 mb-4">
-                    <div class="card h-100 border-primary">
+                    <div class="card h-100 border-primary{% if not ai_features_available %} opacity-75{% endif %}">
                         <div class="card-body text-center">
                             <i class="fas fa-chalkboard-teacher fa-3x text-primary mb-3"></i>
-                            <h5 class="card-title">Lesson Plan</h5>
+                            <h5 class="card-title">Lesson Plan {% if not ai_features_available %}<i class="fas fa-robot text-muted ms-1" title="AI Feature"></i>{% endif %}</h5>
                             <p class="card-text">Generate a comprehensive lesson plan with objectives, activities, and assessment strategies based on the world content.</p>
-                            <button class="btn btn-primary" onclick="generateResource('lesson_plan')">
+                            <button class="btn btn-primary{% if not ai_features_available %} disabled{% endif %}" 
+                                    {% if ai_features_available %}onclick="generateResource('lesson_plan')"{% else %}disabled title="AI features are not configured"{% endif %}>
                                 <i class="fas fa-file-alt"></i> Generate Lesson Plan
                             </button>
+                            {% if not ai_features_available %}
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-exclamation-triangle"></i> Requires AI configuration
+                            </small>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
 
                 <!-- Student Quiz -->
                 <div class="col-md-6 mb-4">
-                    <div class="card h-100 border-success">
+                    <div class="card h-100 border-success{% if not ai_features_available %} opacity-75{% endif %}">
                         <div class="card-body text-center">
                             <i class="fas fa-question-circle fa-3x text-success mb-3"></i>
-                            <h5 class="card-title">Student Quiz</h5>
+                            <h5 class="card-title">Student Quiz {% if not ai_features_available %}<i class="fas fa-robot text-muted ms-1" title="AI Feature"></i>{% endif %}</h5>
                             <p class="card-text">Create an assessment quiz with multiple choice, true/false, and short answer questions related to the educational content.</p>
-                            <button class="btn btn-success" onclick="generateResource('student_quiz')">
+                            <button class="btn btn-success{% if not ai_features_available %} disabled{% endif %}" 
+                                    {% if ai_features_available %}onclick="generateResource('student_quiz')"{% else %}disabled title="AI features are not configured"{% endif %}>
                                 <i class="fas fa-clipboard-check"></i> Generate Quiz
                             </button>
+                            {% if not ai_features_available %}
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-exclamation-triangle"></i> Requires AI configuration
+                            </small>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -161,14 +173,20 @@
 
                 <!-- Parent Letter -->
                 <div class="col-md-6 mb-4">
-                    <div class="card h-100 border-warning">
+                    <div class="card h-100 border-warning{% if not ai_features_available %} opacity-75{% endif %}">
                         <div class="card-body text-center">
                             <i class="fas fa-envelope fa-3x text-warning mb-3"></i>
-                            <h5 class="card-title">Parent Letter</h5>
+                            <h5 class="card-title">Parent Letter {% if not ai_features_available %}<i class="fas fa-robot text-muted ms-1" title="AI Feature"></i>{% endif %}</h5>
                             <p class="card-text">Generate an informative letter for parents explaining the educational value and learning objectives of the Minecraft activity.</p>
-                            <button class="btn btn-warning" onclick="generateResource('parent_letter')">
+                            <button class="btn btn-warning{% if not ai_features_available %} disabled{% endif %}" 
+                                    {% if ai_features_available %}onclick="generateResource('parent_letter')"{% else %}disabled title="AI features are not configured"{% endif %}>
                                 <i class="fas fa-paper-plane"></i> Generate Letter
                             </button>
+                            {% if not ai_features_available %}
+                            <small class="text-muted d-block mt-2">
+                                <i class="fas fa-exclamation-triangle"></i> Requires AI configuration
+                            </small>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
@@ -282,11 +300,6 @@ function displayResource(data, resourceType) {
     if (data.content && typeof data.content === 'string') {
         // Handle AI-generated content with markdown rendering
         html = `
-            ${data.ai_fallback_warning ? `
-                <div class="alert alert-warning mb-3">
-                    <i class="fas fa-exclamation-triangle"></i> ${data.ai_fallback_warning}
-                </div>
-            ` : ''}
             <div class="ai-generated-content">
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <div>
@@ -326,11 +339,6 @@ function displayResource(data, resourceType) {
         }
         
         html = `
-            ${data.ai_fallback_warning ? `
-                <div class="alert alert-warning mb-3">
-                    <i class="fas fa-exclamation-triangle"></i> ${data.ai_fallback_warning}
-                </div>
-            ` : ''}
             ${traditionalHtml}
         `;
     }

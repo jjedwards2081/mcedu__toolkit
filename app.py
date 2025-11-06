@@ -55,7 +55,7 @@ try:
     print("Azure OpenAI client initialized successfully")
 except Exception as e:
     AI_FEATURES_AVAILABLE = False
-    AI_STATUS_MESSAGE = f"AI features unavailable: {str(e)}. Using traditional generation methods."
+    AI_STATUS_MESSAGE = f"AI features unavailable: {str(e)}. These features require Azure OpenAI configuration to function."
     print(f"Warning: Could not initialize Azure OpenAI client: {e}")
     print("Educational resources will use traditional generation methods")
 
@@ -1854,11 +1854,15 @@ REQUIREMENTS:
             'content_length': len(language_content or '')
         }
     else:
-        # Fallback to traditional method with warning
-        traditional_result = generate_lesson_plan(world_data)
-        if traditional_result:
-            traditional_result['ai_fallback_warning'] = "AI features are not configured. Using traditional lesson plan generation."
-        return traditional_result
+        # No fallback - return error that AI is required
+        return {
+            'type': 'lesson_plan',
+            'title': f"AI Lesson Plan Generation Unavailable",
+            'content': "**AI Features Required**\n\nThis feature requires an active Azure OpenAI connection to generate AI-powered lesson plans. Please ensure your system administrator has configured the necessary AI credentials.\n\n**What this feature provides:**\n- Comprehensive lesson plans based on actual world content\n- Educational analysis of Minecraft Education worlds\n- Structured learning objectives and activities\n- Professional formatting with markdown support\n\nContact your administrator to enable AI features for the full educational resource generation experience.",
+            'generated_by': 'System Message',
+            'timestamp': datetime.now().isoformat(),
+            'ai_unavailable': True
+        }
 
 def generate_ai_quiz(world_data):
     """Generate an AI-powered student quiz using Azure OpenAI GPT-5-Chat based on actual world content"""
@@ -2008,11 +2012,15 @@ REQUIREMENTS:
             'content_length': len(language_content or '')
         }
     else:
-        # Fallback to traditional method with warning
-        traditional_result = generate_student_quiz(world_data)
-        if traditional_result:
-            traditional_result['ai_fallback_warning'] = "AI features are not configured. Using traditional quiz generation."
-        return traditional_result
+        # No fallback - return error that AI is required
+        return {
+            'type': 'student_quiz',
+            'title': f"AI Quiz Generation Unavailable",
+            'content': "**AI Features Required**\n\nThis feature requires an active Azure OpenAI connection to generate AI-powered student quizzes. Please ensure your system administrator has configured the necessary AI credentials.\n\n**What this feature provides:**\n- Comprehensive quizzes based on actual world content\n- Multiple question types (multiple-choice, short answer, critical thinking)\n- Age-appropriate questions aligned with learning objectives\n- Professional formatting with scoring rubrics\n- Content that references specific NPCs and world features\n\nContact your administrator to enable AI features for the full educational resource generation experience.",
+            'generated_by': 'System Message',
+            'timestamp': datetime.now().isoformat(),
+            'ai_unavailable': True
+        }
 
 def generate_ai_parent_letter(world_data):
     """Generate an AI-powered parent letter using Azure OpenAI GPT-5-Chat based on actual world content"""
@@ -2185,11 +2193,15 @@ REQUIREMENTS:
             'content_length': len(language_content or '')
         }
     else:
-        # Fallback to traditional method with warning
-        traditional_result = generate_parent_letter(world_data)
-        if traditional_result:
-            traditional_result['ai_fallback_warning'] = "AI features are not configured. Using traditional parent letter generation."
-        return traditional_result
+        # No fallback - return error that AI is required
+        return {
+            'type': 'parent_letter',
+            'title': f"AI Parent Letter Generation Unavailable",
+            'content': "**AI Features Required**\n\nThis feature requires an active Azure OpenAI connection to generate AI-powered parent letters. Please ensure your system administrator has configured the necessary AI credentials.\n\n**What this feature provides:**\n- Personalized parent letters based on specific world content\n- Educational explanations of learning objectives\n- Professional communication addressing gaming in education\n- Specific references to world activities and NPCs\n- Age-appropriate educational context and benefits\n\nContact your administrator to enable AI features for the full educational resource generation experience.",
+            'generated_by': 'System Message',
+            'timestamp': datetime.now().isoformat(),
+            'ai_unavailable': True
+        }
 
 def generate_educational_resource(unpacked_folder_name, resource_type):
     """Generate a specific type of educational resource"""
@@ -2617,7 +2629,11 @@ def admin_panel():
     # Sort by creation date (newest first)
     users_list.sort(key=lambda x: x['created_date'], reverse=True)
     
-    return render_template('admin_panel.html', user=current_user, users=users_list)
+    return render_template('admin_panel.html', 
+                         user=current_user, 
+                         users=users_list,
+                         ai_features_available=AI_FEATURES_AVAILABLE,
+                         ai_status_message=AI_STATUS_MESSAGE)
 
 @app.route('/admin/create_user', methods=['POST'])
 @login_required
@@ -2702,6 +2718,75 @@ def admin_delete_user(username):
         flash(message, 'error')
     
     return redirect(url_for('admin_panel'))
+
+@app.route('/admin/ai_config', methods=['GET', 'POST'])
+@login_required
+def admin_ai_config():
+    """Admin AI Configuration Management"""
+    if not current_user.is_admin():
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        # Get form data
+        api_key = request.form.get('api_key', '').strip()
+        endpoint = request.form.get('endpoint', '').strip()
+        deployment_name = request.form.get('deployment_name', '').strip()
+        api_version = request.form.get('api_version', '').strip()
+        
+        # Validate required fields
+        if not api_key or not endpoint:
+            flash('API Key and Endpoint are required fields.', 'error')
+            return redirect(url_for('admin_ai_config'))
+        
+        # Set defaults if not provided
+        if not deployment_name:
+            deployment_name = 'gpt-5-chat'
+        if not api_version:
+            api_version = '2024-12-01-preview'
+        
+        try:
+            # Read existing .env or create new content
+            env_path = '.env'
+            env_content = {}
+            
+            if os.path.exists(env_path):
+                with open(env_path, 'r') as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith('#') and '=' in line:
+                            key, value = line.split('=', 1)
+                            env_content[key.strip()] = value.strip()
+            
+            # Update AI configuration
+            env_content['AZURE_OPENAI_API_KEY'] = api_key
+            env_content['AZURE_OPENAI_ENDPOINT'] = endpoint
+            env_content['AZURE_OPENAI_DEPLOYMENT_NAME'] = deployment_name
+            env_content['AZURE_OPENAI_API_VERSION'] = api_version
+            
+            # Write back to .env file
+            with open(env_path, 'w') as f:
+                for key, value in env_content.items():
+                    f.write(f"{key}={value}\n")
+            
+            flash('AI configuration saved successfully! Restart the application to apply changes.', 'success')
+            
+        except Exception as e:
+            flash(f'Error saving AI configuration: {str(e)}', 'error')
+        
+        return redirect(url_for('admin_ai_config'))
+    
+    # GET request - show current configuration
+    current_config = {
+        'api_key': AZURE_OPENAI_API_KEY or '',
+        'endpoint': AZURE_OPENAI_ENDPOINT or '',
+        'deployment_name': AZURE_OPENAI_DEPLOYMENT_NAME or 'gpt-5-chat',
+        'api_version': AZURE_OPENAI_API_VERSION or '2024-12-01-preview',
+        'ai_available': AI_FEATURES_AVAILABLE,
+        'ai_status': AI_STATUS_MESSAGE
+    }
+    
+    return render_template('admin_ai_config.html', user=current_user, config=current_config)
 
 @app.route('/forgot_password', methods=['GET', 'POST'])
 def forgot_password():

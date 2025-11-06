@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block title %}AI Configuration - Admin Panel{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-robot"></i> AI Configuration</h1>
+                <a href="{{ url_for('admin_panel') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Admin Panel
+                </a>
+            </div>
+
+            <!-- Current AI Status -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle"></i> Current AI Status</h5>
+                </div>
+                <div class="card-body">
+                    {% if config.ai_available %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle"></i> <strong>AI Features Active:</strong> {{ config.ai_status }}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> <strong>AI Features Unavailable:</strong> {{ config.ai_status }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Current Endpoint:</strong><br>
+                            <code>{{ config.endpoint or 'Not configured' }}</code>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Current Deployment:</strong><br>
+                            <code>{{ config.deployment_name or 'Not configured' }}</code>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Configuration Form -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cog"></i> Azure OpenAI Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="api_key" class="form-label">
+                                        <i class="fas fa-key"></i> Azure OpenAI API Key <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="password" class="form-control" id="api_key" name="api_key" 
+                                           placeholder="{% if config.api_key %}••••••••••••••••{% else %}Enter your Azure OpenAI API key{% endif %}" required>
+                                    <div class="form-text">Your Azure OpenAI API key. This will be stored securely in the .env file.</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="mb-3">
+                                    <label for="endpoint" class="form-label">
+                                        <i class="fas fa-link"></i> Azure OpenAI Endpoint <span class="text-danger">*</span>
+                                    </label>
+                                    <input type="url" class="form-control" id="endpoint" name="endpoint" 
+                                           value="{{ config.endpoint if config.endpoint else '' }}"
+                                           placeholder="https://your-resource.openai.azure.com/" required>
+                                    <div class="form-text">Your Azure OpenAI resource endpoint URL.</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="deployment_name" class="form-label">
+                                        <i class="fas fa-rocket"></i> Deployment Name
+                                    </label>
+                                    <input type="text" class="form-control" id="deployment_name" name="deployment_name" 
+                                           value="{{ config.deployment_name }}"
+                                           placeholder="gpt-5-chat">
+                                    <div class="form-text">The name of your deployed model (default: gpt-5-chat).</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="api_version" class="form-label">
+                                        <i class="fas fa-code-branch"></i> API Version
+                                    </label>
+                                    <input type="text" class="form-control" id="api_version" name="api_version" 
+                                           value="{{ config.api_version }}"
+                                           placeholder="2024-12-01-preview">
+                                    <div class="form-text">Azure OpenAI API version (default: 2024-12-01-preview).</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save AI Configuration
+                            </button>
+                            <button type="button" class="btn btn-info" onclick="testConnection()">
+                                <i class="fas fa-plug"></i> Test Connection
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-lightbulb"></i> Setup Instructions</h6>
+                </div>
+                <div class="card-body">
+                    <h6>How to get Azure OpenAI credentials:</h6>
+                    <ol>
+                        <li><strong>Create Azure OpenAI Resource:</strong>
+                            <ul>
+                                <li>Go to the <a href="https://portal.azure.com" target="_blank">Azure Portal</a></li>
+                                <li>Create a new "Azure OpenAI" resource</li>
+                                <li>Wait for deployment to complete</li>
+                            </ul>
+                        </li>
+                        <li><strong>Deploy a Model:</strong>
+                            <ul>
+                                <li>Go to your Azure OpenAI resource</li>
+                                <li>Click "Model deployments" or "Go to Azure OpenAI Studio"</li>
+                                <li>Deploy a GPT model (recommended: GPT-4 or GPT-3.5-turbo)</li>
+                                <li>Note the deployment name</li>
+                            </ul>
+                        </li>
+                        <li><strong>Get API Credentials:</strong>
+                            <ul>
+                                <li>In your Azure OpenAI resource, go to "Keys and Endpoint"</li>
+                                <li>Copy the endpoint URL and one of the API keys</li>
+                                <li>Enter them in the form above</li>
+                            </ul>
+                        </li>
+                    </ol>
+                    
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Important:</strong> After saving the configuration, you need to restart the application for changes to take effect.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function testConnection() {
+    const apiKey = document.getElementById('api_key').value;
+    const endpoint = document.getElementById('endpoint').value;
+    const deploymentName = document.getElementById('deployment_name').value || 'gpt-5-chat';
+    
+    if (!apiKey || !endpoint) {
+        alert('Please enter both API Key and Endpoint before testing.');
+        return;
+    }
+    
+    // Show loading state
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Testing...';
+    button.disabled = true;
+    
+    // Simple test - you could implement a proper test endpoint
+    setTimeout(() => {
+        // Restore button
+        button.innerHTML = originalText;
+        button.disabled = false;
+        
+        // For now, just show a message that the test would need to be implemented
+        alert('Connection test would be performed here. Save the configuration and restart the application to activate AI features.');
+    }, 2000);
+}
+</script>
+{% endblock %}
