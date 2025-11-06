@@ -38,14 +38,24 @@ AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-5-
 
 # Initialize Azure OpenAI client with error handling
 azure_openai_client = None
+AI_FEATURES_AVAILABLE = False
+AI_STATUS_MESSAGE = ""
+
 try:
+    if not AZURE_OPENAI_API_KEY or not AZURE_OPENAI_ENDPOINT:
+        raise ValueError("Azure OpenAI configuration missing: API key or endpoint not found in environment variables")
+    
     azure_openai_client = AzureOpenAI(
         api_version=AZURE_OPENAI_API_VERSION,
         azure_endpoint=AZURE_OPENAI_ENDPOINT,
         api_key=AZURE_OPENAI_API_KEY
     )
+    AI_FEATURES_AVAILABLE = True
+    AI_STATUS_MESSAGE = "AI-powered educational resource generation is active"
     print("Azure OpenAI client initialized successfully")
 except Exception as e:
+    AI_FEATURES_AVAILABLE = False
+    AI_STATUS_MESSAGE = f"AI features unavailable: {str(e)}. Using traditional generation methods."
     print(f"Warning: Could not initialize Azure OpenAI client: {e}")
     print("Educational resources will use traditional generation methods")
 
@@ -179,6 +189,14 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Please log in to access this page.'
+
+# Context processor to make AI status available to all templates
+@app.context_processor
+def inject_ai_status():
+    return {
+        'ai_features_available': AI_FEATURES_AVAILABLE,
+        'ai_status_message': AI_STATUS_MESSAGE
+    }
 
 # Simple user class for demonstration
 class User(UserMixin):
@@ -1836,8 +1854,11 @@ REQUIREMENTS:
             'content_length': len(language_content or '')
         }
     else:
-        # Fallback to traditional method
-        return generate_lesson_plan(world_data)
+        # Fallback to traditional method with warning
+        traditional_result = generate_lesson_plan(world_data)
+        if traditional_result:
+            traditional_result['ai_fallback_warning'] = "AI features are not configured. Using traditional lesson plan generation."
+        return traditional_result
 
 def generate_ai_quiz(world_data):
     """Generate an AI-powered student quiz using Azure OpenAI GPT-5-Chat based on actual world content"""
@@ -1987,8 +2008,11 @@ REQUIREMENTS:
             'content_length': len(language_content or '')
         }
     else:
-        # Fallback to traditional method
-        return generate_student_quiz(world_data)
+        # Fallback to traditional method with warning
+        traditional_result = generate_student_quiz(world_data)
+        if traditional_result:
+            traditional_result['ai_fallback_warning'] = "AI features are not configured. Using traditional quiz generation."
+        return traditional_result
 
 def generate_ai_parent_letter(world_data):
     """Generate an AI-powered parent letter using Azure OpenAI GPT-5-Chat based on actual world content"""
@@ -2161,8 +2185,11 @@ REQUIREMENTS:
             'content_length': len(language_content or '')
         }
     else:
-        # Fallback to traditional method
-        return generate_parent_letter(world_data)
+        # Fallback to traditional method with warning
+        traditional_result = generate_parent_letter(world_data)
+        if traditional_result:
+            traditional_result['ai_fallback_warning'] = "AI features are not configured. Using traditional parent letter generation."
+        return traditional_result
 
 def generate_educational_resource(unpacked_folder_name, resource_type):
     """Generate a specific type of educational resource"""
